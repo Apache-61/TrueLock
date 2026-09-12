@@ -224,16 +224,41 @@ class Handoff:
         return "\n".join(lines) + "\n"
 
     # -- writing ------------------------------------------------------
-    def write(self, repo_root: Path, *, dry_run: bool = False) -> dict[str, Path]:
-        """Write both artifacts. Returns the paths written."""
+    def write(
+        self, repo_root: Path, *, dry_run: bool = False, state_only: bool = False
+    ) -> dict[str, Path]:
+        """Write the handoff artifacts. Returns the paths written.
+
+        `state_only` writes just the `.state/` record and skips the
+        `history/ai-activity/` entry. Failure paths use it, and the
+        reason is not tidiness -- it is that a failed run must leave the
+        repository exactly as it found it.
+
+        `history/ai-activity/` is tracked, so writing there leaves an
+        untracked file behind. The next run then refuses to start with
+        "working tree is dirty", fails, and writes *another* one. One
+        transient failure -- a flaky network, an encoding problem, a
+        cancelled run -- permanently wedges the machine, and in
+        `--continuous` it trips the three-failure circuit breaker with
+        two failures the worker caused itself.
+
+        `.state/` is gitignored *and* excluded by `Git.is_clean()`
+        (`SCRATCH_NAMES`), so the record survives for debugging without
+        blocking anything. The issue comment carries the summary either
+        way.
+        """
         history_path = repo_root / "history" / "ai-activity" / self.history_filename()
         state_path = repo_root / ".state" / f"task-result-{self.run_id}.json"
+        written: dict[str, Path] = {"task_result": state_path}
         if not dry_run:
-            history_path.parent.mkdir(parents=True, exist_ok=True)
-            history_path.write_text(self.render_markdown(), encoding="utf-8")
             state_path.parent.mkdir(parents=True, exist_ok=True)
             state_path.write_text(self.to_json(), encoding="utf-8")
-        return {"history": history_path, "task_result": state_path}
+            if not state_only:
+                history_path.parent.mkdir(parents=True, exist_ok=True)
+                history_path.write_text(self.render_markdown(), encoding="utf-8")
+        if not state_only:
+            written["history"] = history_path
+        return written
 
 
 def append_timeline(repo_root: Path, *, handoff: Handoff, dry_run: bool = False) -> None:

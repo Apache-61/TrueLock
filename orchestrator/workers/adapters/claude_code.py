@@ -102,6 +102,24 @@ class ClaudeCodeAdapter:
                 input=prompt,
                 capture_output=True,
                 text=True,
+                # Explicit, because `text=True` alone uses the platform's
+                # preferred encoding -- cp1252 on a default Windows
+                # install. The prompt carries the context pack, which
+                # contains the protocol arrows ("TASK -> CLAIM -> ...")
+                # and other non-ASCII text from the repository's own
+                # documents, so cp1252 raises UnicodeEncodeError while
+                # writing stdin.
+                #
+                # That failure is especially nasty: it happens on
+                # subprocess's writer *thread*, so `run` does not raise.
+                # The CLI simply receives no stdin and exits 1 with
+                # "Input must be provided either through stdin or as a
+                # prompt argument", which reads like a CLI bug rather
+                # than an encoding problem on this machine.
+                encoding="utf-8",
+                # The CLI's own output is not ours to control; a stray
+                # undecodable byte must not lose an otherwise good run.
+                errors="replace",
                 timeout=timeout,
                 check=False,
             )

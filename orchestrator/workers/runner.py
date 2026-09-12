@@ -752,26 +752,80 @@ PARTIAL is more useful to the next worker than an optimistic DONE.
             run_id=handoff.run_id,
         )
 
+    #: Failures that say nothing about the task -- the machine, the
+    #: network or a tool let us down. These must not mark the task
+    #: BLOCKED: BLOCKED is terminal in `dependencies.check_eligibility`,
+    #: so a flaky run would remove a critical-path task from the queue
+    #: until a human noticed and relabelled it by hand.
+    INFRASTRUCTURE_FAILURES = (
+        "adapter error",
+        "branch creation failed",
+        "push failed",
+    )
+
+    def _is_infrastructure_failure(self, reason: str) -> bool:
+        lowered = (reason or "").lower()
+        return any(marker in lowered for marker in self.INFRASTRUCTURE_FAILURES)
+
     def _finish_failed(self, task: TaskSpec, handoff: Handoff, reason: str) -> TaskAttempt:
         handoff.outcome = Outcome.FAILED
         handoff.finished_at = datetime.now(timezone.utc).isoformat()
-        handoff.write(self.config.repo_root, dry_run=self.config.dry_run)
-        append_timeline(self.config.repo_root, handoff=handoff, dry_run=self.config.dry_run)
+        # `state_only`: a failed run leaves the repository exactly as it
+        # found it. Writing the history entry here would leave an
+        # untracked file, the next run would refuse to start on a dirty
+        # tree, fail, and write another one -- one transient failure
+        # wedging the machine permanently. See `Handoff.write`.
+        handoff.write(self.config.repo_root, dry_run=self.config.dry_run, state_only=True)
+        # No timeline line either: `history/timeline.md` is tracked, and
+        # it records completed work. A run that produced no branch and no
+        # PR has nothing to record there.
+
+        infrastructure = self._is_infrastructure_failure(reason)
         self.client.add_comment(
             task.issue_number,
             f"WORKER FAILED\nworker_id: {self.config.worker_id}\n"
             f"run_id: {handoff.run_id}\nbranch: {handoff.branch}\n\n{reason}\n\n"
-            "No pull request was opened. See "
-            f"`history/ai-activity/{handoff.history_filename()}`.",
+            "No pull request was opened. The full handoff is in this worker's "
+            f"`.state/task-result-{handoff.run_id}.json` (machine-local, not "
+            "committed).\n\n"
+            + (
+                "This looks like an infrastructure failure rather than a problem "
+                "with the task, so the task is returned to the queue as READY for "
+                "another attempt."
+                if infrastructure
+                else "The task is marked BLOCKED for a human to look at."
+            ),
         )
-        self._set_labels(task.issue_number, add=["status:blocked"], remove=["status:claimed"])
+        self._set_labels(
+            task.issue_number,
+            add=["status:ready"] if infrastructure else ["status:blocked"],
+            remove=["status:claimed"],
+        )
         claim_protocol.release_task(
             self.client, task.issue_number, self.config.worker_id, reason=reason
         )
+        self._return_to_base(handoff.branch)
         return TaskAttempt(
             task.task_id, task.issue_number, Outcome.FAILED, reason,
             branch=handoff.branch, run_id=handoff.run_id,
         )
+
+    def _return_to_base(self, branch: str) -> None:
+        """Leave the checkout on the base branch after a failed run.
+
+        Without this the worker sits on the half-finished task branch,
+        and the next run starts from there. Best-effort and
+        non-destructive: it never discards uncommitted work, because a
+        worker that deletes changes it did not make is worse than one
+        that stops and says the tree is dirty.
+        """
+        if self.config.dry_run or not branch or branch == self.config.base_branch:
+            return
+        try:
+            if self.git.is_clean():
+                self.git.checkout(self.config.base_branch)
+        except Exception as error:  # noqa: BLE001 - hygiene, never fatal
+            self.log(f"note: could not return to {self.config.base_branch} ({error})")
 
     def _record_failure(
         self, task: TaskSpec, run_id: str, started_at: str, branch: str, reason: str
