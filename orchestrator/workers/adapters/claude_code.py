@@ -25,12 +25,21 @@ import os
 import shlex
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 
 from .base import AdapterError, AIResult, extract_result
 
 DEFAULT_TIMEOUT = 3600
+
+#: How often to report that the CLI is still working, in seconds.
+#: `capture_output=True` buffers everything until the process exits, and
+#: `-p --output-format json` prints only at the end, so without this the
+#: terminal is silent for as long as the task takes -- up to an hour.
+#: An operator cannot tell a working worker from a hung one, and the
+#: rational response to silence is Ctrl+C, which strands the claim.
+HEARTBEAT_SECONDS = 30.0
 
 #: The CLI is asked for JSON so the worker gets usage metadata alongside
 #: the answer; `acceptEdits` lets it write files without a human at the
@@ -82,7 +91,15 @@ class ClaudeCodeAdapter:
         command += list(self.extra_args)
         return command
 
-    def execute(self, prompt: str, *, task_id: str, workdir: str, timeout: int = DEFAULT_TIMEOUT) -> AIResult:
+    def execute(
+        self,
+        prompt: str,
+        *,
+        task_id: str,
+        workdir: str,
+        timeout: int = DEFAULT_TIMEOUT,
+        on_progress=None,
+    ) -> AIResult:
         if not self.available():
             raise AdapterError(
                 f"the Claude Code CLI ({self.binary!r}) is not on PATH. Install it "
@@ -96,32 +113,8 @@ class ClaudeCodeAdapter:
         self.last_permission_denials = []
         started = time.monotonic()
         try:
-            completed = subprocess.run(
-                command,
-                cwd=workdir,
-                input=prompt,
-                capture_output=True,
-                text=True,
-                # Explicit, because `text=True` alone uses the platform's
-                # preferred encoding -- cp1252 on a default Windows
-                # install. The prompt carries the context pack, which
-                # contains the protocol arrows ("TASK -> CLAIM -> ...")
-                # and other non-ASCII text from the repository's own
-                # documents, so cp1252 raises UnicodeEncodeError while
-                # writing stdin.
-                #
-                # That failure is especially nasty: it happens on
-                # subprocess's writer *thread*, so `run` does not raise.
-                # The CLI simply receives no stdin and exits 1 with
-                # "Input must be provided either through stdin or as a
-                # prompt argument", which reads like a CLI bug rather
-                # than an encoding problem on this machine.
-                encoding="utf-8",
-                # The CLI's own output is not ours to control; a stray
-                # undecodable byte must not lose an otherwise good run.
-                errors="replace",
-                timeout=timeout,
-                check=False,
+            completed = self._run_with_heartbeat(
+                command, prompt, workdir, timeout, on_progress
             )
         except subprocess.TimeoutExpired as exc:
             raise AdapterError(
@@ -159,6 +152,55 @@ class ClaudeCodeAdapter:
             )
             result.requires_human_review = True
         return result
+
+    def _run_with_heartbeat(self, command, prompt, workdir, timeout, on_progress):
+        """Run the CLI, telling the caller it is still alive while it works.
+
+        The CLI is invoked with `capture_output=True`, so nothing reaches
+        the terminal until it exits, and `-p --output-format json` emits
+        its answer only at the end. A task legitimately takes many
+        minutes; without a heartbeat the operator sees an unchanging
+        screen and cannot distinguish "thinking" from "hung". The
+        rational response to that is Ctrl+C -- which abandons a claimed
+        task mid-flight.
+
+        `subprocess.run` is kept rather than reimplemented on top of
+        `Popen`: it already handles the timeout, the stdin write and the
+        pipe draining correctly on both platforms. It simply runs on a
+        thread so this one can report elapsed time while it blocks.
+        """
+        if on_progress is None:
+            return subprocess.run(
+                command, cwd=workdir, input=prompt, capture_output=True,
+                text=True, encoding="utf-8", errors="replace",
+                timeout=timeout, check=False,
+            )
+
+        outcome: dict = {}
+
+        def call() -> None:
+            try:
+                outcome["completed"] = subprocess.run(
+                    command, cwd=workdir, input=prompt, capture_output=True,
+                    text=True, encoding="utf-8", errors="replace",
+                    timeout=timeout, check=False,
+                )
+            except BaseException as error:  # noqa: BLE001 - re-raised below
+                outcome["error"] = error
+
+        worker = threading.Thread(target=call, name="claude-cli", daemon=True)
+        started = time.monotonic()
+        worker.start()
+        while True:
+            worker.join(timeout=HEARTBEAT_SECONDS)
+            if not worker.is_alive():
+                break
+            elapsed = time.monotonic() - started
+            on_progress(elapsed, timeout)
+
+        if "error" in outcome:
+            raise outcome["error"]
+        return outcome["completed"]
 
     @staticmethod
     def _served_model(envelope: dict) -> str:

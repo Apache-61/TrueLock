@@ -52,6 +52,18 @@ matter to someone re-reading this in a week, it doesn't go here.
   (`WORKER_LIVE_AI_TEST=1`; skipped in CI). See `docs/testing.md`.
 
 ### Fixed
+- **The worker looked hung while it was working.** The AI step is the
+  slow one — minutes, with an hour's budget — and the CLI is invoked with
+  `capture_output=True` and `-p --output-format json`, so nothing reached
+  the terminal until it exited. An operator could not tell a working
+  worker from a hung one. It now says the step is silent and slow before
+  starting it, and prints elapsed time every 30 seconds while it runs.
+- **Ctrl+C stranded the task.** The interrupt handler printed "nothing
+  further was changed" while the CLAIM comment was already on the issue,
+  so the task stayed locked to a worker that was no longer running until
+  the three-hour staleness window expired. An interrupt now releases the
+  claim, returns the task to `status:ready`, and says so on the issue —
+  and the message no longer claims nothing happened.
 - **The worker wedged itself after any failed run.** The failure path
   wrote `history/ai-activity/<run>.md` and appended to
   `history/timeline.md` — both tracked — and committed neither. The next

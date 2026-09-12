@@ -19,6 +19,7 @@ task's declared paths.
 """
 from __future__ import annotations
 
+import inspect
 import os
 import random
 import time
@@ -336,6 +337,46 @@ class WorkerRunner:
         self.sleep(delay)
 
     def attempt_task(self, task: TaskSpec) -> TaskAttempt:
+        """Take one task from claim to pull request.
+
+        Wrapped so that an interrupt cannot strand the task: once the
+        claim is posted, abandoning without releasing it locks the task
+        out of the queue until the staleness window expires (three
+        hours). Ctrl+C is a normal thing for an operator to do -- above
+        all when the run has gone quiet -- so it has to hand the task
+        back.
+        """
+        try:
+            return self._attempt_task(task)
+        except KeyboardInterrupt:
+            self._abandon(task, reason="interrupted by the operator (Ctrl+C)")
+            raise
+
+    def _abandon(self, task: TaskSpec, *, reason: str) -> None:
+        """Hand a claimed task back after an interrupt. Best-effort."""
+        self.log(f"\nreleasing the claim on {task.task_id} — {reason}")
+        for action in (
+            lambda: self.client.add_comment(
+                task.issue_number,
+                f"WORKER ABANDONED\nworker_id: {self.config.worker_id}\n"
+                f"timestamp: {claim_protocol.utc_now()}\n\n{reason}.\n\n"
+                "The claim is released and the task returns to the queue. Any "
+                "work already written is left on the task branch for inspection; "
+                "no pull request was opened.",
+            ),
+            lambda: claim_protocol.release_task(
+                self.client, task.issue_number, self.config.worker_id, reason=reason
+            ),
+            lambda: self._set_labels(
+                task.issue_number, add=["status:ready"], remove=["status:claimed"]
+            ),
+        ):
+            try:
+                action()
+            except Exception as error:  # noqa: BLE001 - already unwinding
+                self.log(f"note: could not complete cleanup ({error})")
+
+    def _attempt_task(self, task: TaskSpec) -> TaskAttempt:
         run_id = new_run_id()
         started_at = datetime.now(timezone.utc).isoformat()
 
@@ -399,12 +440,20 @@ class WorkerRunner:
         handoff.routing_events = [event.render() for event in self.router.events]
 
         prompt = self._build_prompt(task, pack.render())
+        ai_timeout = int(os.environ.get("WORKER_AI_TIMEOUT", "3600"))
+        self.log(
+            f"running {getattr(self.adapter, 'name', 'the AI')} on {task.task_id} — "
+            f"this is the slow step and prints nothing until it finishes "
+            f"(budget {ai_timeout // 60}m). Progress every "
+            f"{int(getattr(self.adapter, 'HEARTBEAT_SECONDS', 30))}s:"
+        )
         try:
             result = self.adapter.execute(
                 prompt,
                 task_id=task.task_id,
                 workdir=str(self.config.repo_root),
-                timeout=int(os.environ.get("WORKER_AI_TIMEOUT", "3600")),
+                timeout=ai_timeout,
+                **self._progress_kwargs(),
             )
             self._record_usage(provider, status="ok")
         except AdapterError as error:
@@ -546,6 +595,25 @@ class WorkerRunner:
             pr_url=pr_url,
             run_id=run_id,
         )
+
+    def _progress_kwargs(self) -> dict:
+        """`on_progress=` only for adapters that accept it.
+
+        The protocol in `adapters/base.py` does not require it, and a
+        third-party or stub adapter that does not take the keyword must
+        still run rather than fail with a TypeError.
+        """
+        try:
+            signature = inspect.signature(self.adapter.execute)
+        except (TypeError, ValueError):  # pragma: no cover - exotic callables
+            return {}
+        if "on_progress" not in signature.parameters:
+            return {}
+        return {"on_progress": self._report_ai_progress}
+
+    def _report_ai_progress(self, elapsed: float, budget: float) -> None:
+        minutes, seconds = divmod(int(elapsed), 60)
+        self.log(f"  ... still working — {minutes}m{seconds:02d}s elapsed")
 
     # -- prompt -------------------------------------------------------
     def _build_prompt(self, task: TaskSpec, context: str) -> str:

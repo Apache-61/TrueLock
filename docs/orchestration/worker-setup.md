@@ -218,6 +218,38 @@ queue every `WORKER_POLL_SECONDS` (default 120, jittered so four machines
 do not wake together and race for the same task). Bound it with
 `--max-idle` if you want it to give up.
 
+### What a live run looks like
+
+The AI step is the slow one. A real task takes minutes, and the budget is
+`WORKER_AI_TIMEOUT` (default 60m). The CLI is captured rather than
+streamed, so its own output arrives only when it finishes — the worker
+therefore says so before it starts, and prints elapsed time while it
+waits:
+
+```
+ROUTING_EVENT from=none to=claude-code-cli reason=TASK-002:feature:tier1-2-development
+running claude_code on TASK-002 — this is the slow step and prints nothing
+until it finishes (budget 60m). Progress every 30s:
+  ... still working — 0m30s elapsed
+  ... still working — 1m00s elapsed
+```
+
+**A worker sitting on `... still working` is fine.** It is not hung. The
+run only stops on its own at the budget, and every other step prints as
+it happens.
+
+### Interrupting a run
+
+Ctrl+C is safe. The worker releases its claim, returns the task to
+`status:ready`, and notes what happened on the issue, so another machine
+can pick it up immediately rather than waiting out the three-hour
+staleness window.
+
+What it does *not* do is undo work already written: a task branch may
+remain in your clone. Nothing is ever merged. If you interrupt and then
+want to retry, make sure the tree is clean first (`git status`) — the
+worker refuses to start a task on top of uncommitted changes.
+
 ### If a machine dies mid-task
 
 Its claim would otherwise hold the task forever. Another worker takes
