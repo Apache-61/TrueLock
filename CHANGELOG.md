@@ -24,6 +24,13 @@ matter to someone re-reading this in a week, it doesn't go here.
   See `docs/orchestration/worker-setup.md`.
 - Provider routing with `ROUTING_EVENT` logging and a per-call usage
   ledger (`orchestrator/routing/`).
+- **Canonical domain layer** (TASK-001): `domain/entities/` (six
+  validated Pydantic records mirroring `domain/schemas/`),
+  `scripts/ingest/` (CFDI 4.0 XML and bank-CSV normalizers that reject
+  rather than guess, and report every rejection), and
+  `backend/repositories/` (the read surface as `Protocol`s with no
+  database dependency, plus in-memory implementations everything
+  downstream can develop against before the database lands).
 - **Real task queue**: 55 tasks covering domain, data, detection, graph,
   agent, tools, API, frontend, testing and infrastructure, defined in
   `orchestrator/task_queue/backlog.py` and rendered into both the

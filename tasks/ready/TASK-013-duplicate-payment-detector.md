@@ -18,6 +18,7 @@ Distinct from DUPLICATE_INVOICE: that one catches the same invoice billed twice,
 
 ```
 detection/rules/duplicate_payment.py
+tests/**
 ```
 
 ## Forbidden paths

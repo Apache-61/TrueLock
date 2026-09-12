@@ -22,6 +22,7 @@ backend/api/app.py
 backend/api/deps.py
 backend/api/errors.py
 backend/api/routes/__init__.py
+tests/**
 ```
 
 ## Forbidden paths

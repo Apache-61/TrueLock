@@ -62,6 +62,12 @@ def _request(method: str, path: str, token: str, body: dict | None = None) -> ob
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("X-GitHub-Api-Version", "2022-11-28")
+    if data is not None:
+        # Without this every write is rejected with 415, which made the
+        # manual claim path unusable while the worker's own client (which
+        # does send it) worked fine -- so the breakage only showed up for
+        # a human following tasks/README.md.
+        req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req) as resp:
             raw = resp.read()

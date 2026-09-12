@@ -20,3 +20,5 @@ Format: `YYYY-MM-DD HH:MM UTC | TASK-### or n/a | worker | one-line summary`
 
 2026-09-12 17:30 UTC | n/a | orchestrator session (Claude Code) | Continuous worker loop (ADR-0006): merges propagate into task state so dependants unlock, blockers no longer idle a machine, idle workers poll with jitter, and silent claims expire. Bounded by `--max-idle` and a three-failure circuit breaker. 446 tests passing.
 
+2026-09-12 19:10 UTC | TASK-001 | orchestrator session (Claude Code) | Canonical domain layer: six entities mirroring `domain/schemas/` with reject-don't-guess validation, CFDI/bank-CSV ingestion reporting every rejection, and the repository read surface as Protocols with no database dependency (plus in-memory implementations). 577 tests passing. Fixed two backlog defects found by doing the work: no task declared `tests/` in its allowed_paths (the scope guard would have blocked every task from writing its required tests), and `task_cli.py` sent no Content-Type so every manual claim failed with 415.
+

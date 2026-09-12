@@ -19,6 +19,7 @@ This is the demo's most exposed surface: it is answered live, in front of judges
 ```
 agent/qa/**
 agent/prompts/qa.md
+tests/**
 ```
 
 ## Forbidden paths

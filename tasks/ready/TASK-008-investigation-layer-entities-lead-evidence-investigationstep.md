@@ -18,6 +18,7 @@ These are the types every later module exchanges: detectors emit `DetectorSignal
 
 ```
 domain/entities/**
+tests/**
 ```
 
 ## Forbidden paths

@@ -19,6 +19,7 @@ This is the step that turns detection from a library into a product stage: after
 ```
 detection/pipeline.py
 scripts/demo/run_detection.py
+tests/**
 ```
 
 ## Forbidden paths

@@ -16,6 +16,7 @@ Serve an entity profile: identity fields, EFOS status where known, counterparty 
 
 ```
 backend/api/routes/entities.py
+tests/**
 ```
 
 ## Forbidden paths

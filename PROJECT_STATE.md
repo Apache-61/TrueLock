@@ -7,11 +7,12 @@
 > of any task that changes what's implemented, blocked, or decided.
 
 **Last updated:** 2026-09-12 · **Updated by:** orchestrator session
-(repository reconciliation, real task queue, continuous worker loop)
+(reconciliation, real task queue, continuous worker loop, TASK-001)
 
 ## Current version
 
-`v0.0.2-queue` — still no *product* code (no detector, agent, or UI).
+`v0.0.3-domain` — the first product code exists: the canonical domain
+layer. Still no detector, agent or UI.
 What is new is that the automation layer is **on `main` and loaded**: the
 bootstrap and the worker are merged, the real 55-task backlog is seeded as
 GitHub issues, and the worker runs as a continuous loop four machines can
@@ -53,6 +54,15 @@ necessary).
   integration), writes the handoff and `history/ai-activity/` entry, and
   opens a PR. It never touches `main` and never merges (ADR-0005).
   Setup and operation: `docs/orchestration/worker-setup.md`.
+- **Canonical domain layer** (TASK-001): `domain/entities/` — the six
+  canonical records as validated Pydantic models mirroring
+  `domain/schemas/` 1:1, rejecting malformed records rather than
+  repairing them; `scripts/ingest/` — CFDI 4.0 XML and bank-CSV
+  normalizers that report every rejection with its location and reason;
+  `backend/repositories/` — the read surface as `Protocol`s importing no
+  database driver, plus in-memory implementations. That last boundary is
+  what lets the agent tools, the detection pipeline and the API be built
+  and tested before the database exists.
 - **Real task queue** (`orchestrator/task_queue/backlog.py`): 55 tasks
   covering domain, data, detection, graph, agent, tools, API, frontend,
   testing and infrastructure, defined as data and rendered into both the
@@ -75,7 +85,7 @@ necessary).
 - Provider routing with `ROUTING_EVENT` logging and a per-call usage
   ledger (`orchestrator/routing/`), plus the handoff schema
   (`orchestrator/policies/task-result.schema.json`).
-- Test suite grown from 28 to 446 passing tests, covering the claim race,
+- Test suite grown from 28 to 577 passing tests, covering the claim race,
   scope enforcement, dependency gating, validation honesty, the merge
   policy, and the whole loop end to end offline — plus an opt-in
   integration test that drives the worker with the **real** Claude Code
@@ -146,11 +156,11 @@ The full backlog is `tasks/BACKLOG.md` (index + dependency graph),
 mirrored in `tasks/ready/` and authoritative as GitHub issues: 55 tasks,
 39 of them P0.
 
-Claimable immediately, one per machine:
+`TASK-001` is **implemented and merged**, which unlocks TASK-002, -003,
+-008 and -012. Claimable now:
 
 | Task | Area | Why it is first |
 |---|---|---|
-| `TASK-001` | data | Canonical entities — nearly everything depends on it |
 | `TASK-006` | frontend | Shell against the mocked API; needs no backend |
 | `TASK-052` | infra | One-command local stack; no code dependencies |
 | `TASK-053` | infra | Environment preflight; no code dependencies |

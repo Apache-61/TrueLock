@@ -20,6 +20,7 @@ Reads `domain/entities/` -- does not modify it.
 data/synthetic/**
 data/answer_keys/**
 data/fixtures/**
+tests/**
 ```
 
 ## Forbidden paths

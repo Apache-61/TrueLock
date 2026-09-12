@@ -17,6 +17,7 @@ Ask questions about a case and render the grounded answer with its citations. Us
 ```
 frontend/app/qa/**
 frontend/components/qa/**
+tests/**
 ```
 
 ## Forbidden paths

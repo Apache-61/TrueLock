@@ -16,6 +16,7 @@ Expose the TASK-027 Q&A over HTTP: a question about a completed case, answered w
 
 ```
 backend/api/routes/questions.py
+tests/**
 ```
 
 ## Forbidden paths

@@ -18,6 +18,7 @@ SSE over WebSocket deliberately: the stream is one-directional and SSE reconnect
 
 ```
 backend/api/routes/events.py
+tests/**
 ```
 
 ## Forbidden paths

@@ -52,6 +52,12 @@ class TaskDefinition:
     tests_required: str
     task_type: str = "feature"
     depends_on: tuple[str, ...] = ()
+    #: Where this task may write its tests. Every task is *required* to
+    #: bring tests, so every task must be scoped to write them -- without
+    #: this the worker's own scope guard blocks the tests the task asks
+    #: for, on every task, and each one stops BLOCKED for a violation it
+    #: was instructed to commit.
+    test_paths: tuple[str, ...] = ("tests/**",)
     forbidden_paths: tuple[str, ...] = ()
     documentation_requirements: str = ""
     execution_mode: str = "auto"
@@ -129,6 +135,7 @@ class TaskDefinition:
             "",
             "```",
             *self.allowed_paths,
+            *self.test_paths,
             "```",
             "",
         ]
@@ -252,6 +259,10 @@ def validate(tasks: tuple[TaskDefinition, ...] | None = None) -> list[str]:
                 continue
             if outer.task_id in all_dependencies(inner.task_id):
                 continue
+            # Source scope only. Test paths are deliberately excluded:
+            # every task writes tests, each into its own named file, and
+            # a clash there is a rename rather than a lost change. The
+            # conflict worth blocking is two tasks editing one module.
             collisions = sorted(
                 (left, right)
                 for left in outer.allowed_paths
@@ -318,7 +329,15 @@ _SPINE: tuple[TaskDefinition, ...] = (
             "Input: `domain/schemas/*.schema.json`, `docs/contracts/domain.md`. "
             "The schemas are a frozen contract -- implement them, do not edit them."
         ),
-        allowed_paths=("domain/entities/**", "scripts/ingest/**", "backend/repositories/**"),
+        allowed_paths=(
+            "domain/entities/**",
+            "scripts/ingest/**",
+            "backend/repositories/**",
+            # The entities are Pydantic models (ARCHITECTURE.md), and a
+            # task cannot deliver them without declaring the dependency.
+            "requirements.txt",
+            "requirements-dev.txt",
+        ),
         forbidden_paths=("domain/schemas/**", "frontend/**", "agent/**", "detection/**"),
         acceptance_criteria=(
             "Every schema in `domain/schemas/` for a canonical entity has a "

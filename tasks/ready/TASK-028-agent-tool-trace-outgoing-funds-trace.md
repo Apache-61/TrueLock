@@ -18,6 +18,7 @@ This is the tool the money-trail UI renders and the one the agent leans on harde
 
 ```
 agent/tools/trace_funds.py
+tests/**
 ```
 
 ## Forbidden paths

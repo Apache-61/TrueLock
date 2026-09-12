@@ -18,6 +18,7 @@ Run before the demo. Discovering a missing key in front of judges is a preventab
 
 ```
 scripts/validate/**
+tests/**
 ```
 
 ## Forbidden paths

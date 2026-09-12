@@ -16,6 +16,7 @@ Serve one investigation's current state: status, the steps taken in order with t
 
 ```
 backend/api/routes/investigations.py
+tests/**
 ```
 
 ## Forbidden paths

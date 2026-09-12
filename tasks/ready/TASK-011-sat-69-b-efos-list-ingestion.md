@@ -19,6 +19,7 @@ The 69-B correlation detector in TASK-004 needs this to be more than a stub. Wor
 ```
 scripts/ingest/efos.py
 data/raw/efos/**
+tests/**
 ```
 
 ## Forbidden paths

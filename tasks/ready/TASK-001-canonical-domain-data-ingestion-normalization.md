@@ -20,6 +20,9 @@ Input: `domain/schemas/*.schema.json`, `docs/contracts/domain.md`. The schemas a
 domain/entities/**
 scripts/ingest/**
 backend/repositories/**
+requirements.txt
+requirements-dev.txt
+tests/**
 ```
 
 ## Forbidden paths

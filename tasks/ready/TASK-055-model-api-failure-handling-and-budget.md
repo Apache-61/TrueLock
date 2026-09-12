@@ -18,6 +18,7 @@ The budget is ~USD 300 across four projects. A runaway loop can spend it in an a
 
 ```
 agent/runtime/resilience.py
+tests/**
 ```
 
 ## Forbidden paths

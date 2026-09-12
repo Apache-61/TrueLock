@@ -64,7 +64,12 @@ class TestTheRealBacklog:
             assert spec.task_id == task.task_id
             assert spec.priority == task.priority
             assert set(spec.depends_on) == set(task.depends_on)
-            assert set(spec.allowed_paths) == set(task.allowed_paths), task.task_id
+            # The rendered scope is the task's source paths plus where it
+            # may write its tests -- every task is required to bring tests,
+            # so every task must be scoped to write them.
+            assert set(spec.allowed_paths) == set(task.allowed_paths) | set(
+                task.test_paths
+            ), task.task_id
             assert set(spec.forbidden_paths) == set(task.forbidden_paths), task.task_id
             assert len(spec.acceptance_criteria) == len(task.acceptance_criteria)
             assert spec.objective, f"{task.task_id} parsed with an empty objective"
@@ -83,6 +88,22 @@ class TestTheRealBacklog:
     def test_some_work_is_claimable_immediately(self):
         """A backlog where nothing can start is a stalled team."""
         assert len(ready_now()) >= 2
+
+    def test_every_task_may_write_its_own_tests(self):
+        """Otherwise the scope guard blocks the tests the task asks for.
+
+        Every task's "Tests required" section names files under `tests/`.
+        If the rendered `allowed_paths` do not cover them, the worker
+        stops the task BLOCKED for a scope violation it was instructed to
+        commit -- on every task, on all four machines.
+        """
+        from orchestrator.workers.scope import ScopeGuard
+
+        for task in BACKLOG:
+            spec_paths = set(task.allowed_paths) | set(task.test_paths)
+            guard = ScopeGuard(tuple(spec_paths), task.forbidden_paths)
+            report = guard.check(["tests/unit/test_something.py"])
+            assert report.ok, f"{task.task_id} cannot write its own tests"
 
     def test_the_graph_renders(self):
         graph = render_graph()

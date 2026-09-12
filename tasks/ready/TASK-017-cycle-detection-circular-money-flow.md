@@ -17,6 +17,7 @@ Detect money returning to its origin through intermediaries -- the round-trip th
 ```
 detection/graph/cycles.py
 detection/rules/cycles.py
+tests/**
 ```
 
 ## Forbidden paths

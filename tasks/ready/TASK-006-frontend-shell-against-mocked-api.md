@@ -18,6 +18,7 @@ This task owns the shell: routing, layout, the API client seam, and the mock. Ea
 
 ```
 frontend/**
+tests/**
 ```
 
 ## Forbidden paths

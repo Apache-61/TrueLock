@@ -17,6 +17,7 @@ Detect accounts that receive and forward substantially the same amount within a 
 ```
 detection/graph/pass_through.py
 detection/rules/pass_through.py
+tests/**
 ```
 
 ## Forbidden paths

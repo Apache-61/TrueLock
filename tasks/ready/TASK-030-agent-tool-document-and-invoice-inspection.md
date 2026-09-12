@@ -16,6 +16,7 @@ Implement the tools that let the agent read the underlying documents: fetch an i
 
 ```
 agent/tools/documents.py
+tests/**
 ```
 
 ## Forbidden paths
