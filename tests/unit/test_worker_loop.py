@@ -588,3 +588,137 @@ class TestUnverifiedRun:
         self.runner(repo, client).run()
         payload = json.loads(next((repo / ".state").glob("task-result-*.json")).read_text())
         assert "NOT VERIFIED" in payload["run"]["validation"]
+
+
+class TestAiQualifiedResults:
+    """The worker never upgrades the AI's own assessment.
+
+    Both cases here were found by running the loop against the real
+    Claude Code CLI: passing tests were silently promoting a
+    self-declared PARTIAL to DONE, and a run the AI explicitly flagged
+    for human review was opening as a normal, merge-ready PR.
+    """
+
+    def build(self, repo, client, *, status="PARTIAL", human_review=False):
+        adapter = WritingAdapter({"domain/entities/invoice.py": "ok\n"}, status=status)
+        original = adapter.execute
+
+        def execute(prompt, *, task_id, workdir, timeout=0):
+            result = original(prompt, task_id=task_id, workdir=workdir, timeout=timeout)
+            result.requires_human_review = human_review
+            result.known_issues = ["the tests were reasoned through, not run"]
+            return result
+
+        adapter.execute = execute
+        return build_runner(repo, client, adapter=adapter, ok=True)
+
+    def test_partial_is_not_promoted_to_done_by_passing_tests(self, repo, client):
+        """Passing tests prove what was written works, not that what was
+        asked for got written."""
+        summary = self.build(repo, client).run()
+        assert summary.attempts[0].outcome == Outcome.PARTIAL
+
+    def test_a_partial_pr_is_a_draft_and_says_so(self, repo, client):
+        self.build(repo, client).run()
+        pull = client.pulls[0]
+        assert pull["draft"] is True
+        assert "[PARTIAL]" in pull["title"]
+
+    def test_the_handoff_records_partial(self, repo, client):
+        self.build(repo, client).run()
+        payload = json.loads(next((repo / ".state").glob("task-result-*.json")).read_text())
+        assert payload["status"] == "PARTIAL"
+
+    def test_a_run_flagged_for_human_review_is_not_merge_ready(self, repo, client):
+        self.build(repo, client, status="DONE", human_review=True).run()
+        pull = client.pulls[0]
+        assert pull["draft"] is True
+        assert "NEEDS HUMAN REVIEW" in pull["title"]
+        assert "asked for human review" in pull["body"]
+
+    def test_an_unqualified_done_still_opens_a_normal_pr(self, repo, client):
+        """The guard must not make every PR a draft."""
+        summary = self.build(repo, client, status="DONE", human_review=False).run()
+        assert summary.attempts[0].outcome == Outcome.DONE
+        assert client.pulls[0]["draft"] is False
+
+
+class TestWorkerScratchStaysOutOfThePr:
+    """`.state/` is runtime scratch, never a source of truth.
+
+    `.gitignore` covers it in this repository, but a commit that relies on
+    the host repo's ignore rules leaks the worker's own bookkeeping into
+    someone's review wherever those rules differ — which is exactly what
+    the first live integration run did.
+    """
+
+    def test_state_files_are_never_committed(self, repo, client):
+        adapter = WritingAdapter({"domain/entities/invoice.py": "ok\n"})
+        build_runner(repo, client, adapter=adapter).run()
+
+        assert list((repo / ".state").glob("task-result-*.json")), "scratch should exist on disk"
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=repo, capture_output=True, text=True, check=True
+        ).stdout.split()
+        assert not [path for path in tracked if path.startswith(".state/")]
+
+    def test_the_durable_history_entry_is_still_committed(self, repo, client):
+        """Excluding scratch must not exclude the record CONTRIBUTING §6 requires."""
+        adapter = WritingAdapter({"domain/entities/invoice.py": "ok\n"})
+        build_runner(repo, client, adapter=adapter).run()
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=repo, capture_output=True, text=True, check=True
+        ).stdout.split()
+        assert any(path.startswith("history/ai-activity/") for path in tracked)
+
+    def test_scratch_does_not_block_the_next_task(self, repo, client):
+        """Leaving `.state/` on disk must not make the tree look dirty to
+        the following task — the worker would refuse to start and strand
+        a continuous run after exactly one task."""
+        client.add_issue(2, "TASK-002: Second", TASK_BODY, ["status:ready"])
+        adapter = WritingAdapter({"domain/entities/invoice.py": "ok\n"})
+        summary = build_runner(repo, client, adapter=adapter,
+                               limits=RunLimits(max_tasks=2)).run()
+
+        assert len(summary.attempts) == 2
+        assert all(attempt.outcome == Outcome.DONE for attempt in summary.attempts)
+        assert Git(repo).is_clean()
+
+    def test_real_uncommitted_work_still_counts_as_dirty(self, repo, client):
+        """The exemption is for worker scratch only; a stray edit must
+        still stop a task from starting on top of it."""
+        (repo / "stray.py").write_text("x = 1\n")
+        assert not Git(repo).is_clean()
+
+    def test_nested_build_artifacts_are_not_committed(self, repo, client):
+        """`__pycache__` appears at every level of a tree, and the worker
+        creates it itself by running the validation gates."""
+        class ArtifactAdapter(WritingAdapter):
+            def execute(self, prompt, *, task_id, workdir, timeout=0):
+                result = super().execute(prompt, task_id=task_id, workdir=workdir,
+                                         timeout=timeout)
+                for relative in ("__pycache__/root.pyc",
+                                 "domain/entities/__pycache__/nested.pyc",
+                                 ".pytest_cache/v/cache/lastfailed"):
+                    path = Path(workdir) / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("artifact\n")
+                return result
+
+        adapter = ArtifactAdapter({"domain/entities/invoice.py": "ok\n"})
+        build_runner(repo, client, adapter=adapter).run()
+
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=repo, capture_output=True, text=True, check=True
+        ).stdout.split()
+        assert not [path for path in tracked if Git.is_scratch(path)], tracked
+        assert "domain/entities/invoice.py" in tracked
+
+    def test_is_scratch_matches_at_any_depth_but_not_lookalikes(self):
+        assert Git.is_scratch(".state/usage.jsonl")
+        assert Git.is_scratch("__pycache__/x.pyc")
+        assert Git.is_scratch("a/b/__pycache__/x.pyc")
+        assert Git.is_scratch(".pytest_cache/v/cache/lastfailed")
+        assert not Git.is_scratch("domain/entities/invoice.py")
+        assert not Git.is_scratch("mystate/file.py")
+        assert not Git.is_scratch("docs/__pycache__notes.md")

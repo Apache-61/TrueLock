@@ -54,9 +54,11 @@ necessary).
 - Provider routing with `ROUTING_EVENT` logging and a per-call usage
   ledger (`orchestrator/routing/`), plus the handoff schema
   (`orchestrator/policies/task-result.schema.json`).
-- Test suite grown from 28 to 334 passing tests, covering the claim race,
+- Test suite grown from 28 to 352 passing tests, covering the claim race,
   scope enforcement, dependency gating, validation honesty, the merge
-  policy, and the whole loop end to end offline.
+  policy, and the whole loop end to end offline — plus an opt-in
+  integration test that drives the worker with the **real** Claude Code
+  CLI (`WORKER_LIVE_AI_TEST=1`, skipped in CI so it stays free).
 
 ## In progress
 

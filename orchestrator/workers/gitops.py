@@ -91,6 +91,33 @@ class Git:
             raise GitError(f"`{' '.join(command)}` failed ({result.returncode}): {result.stderr}")
         return result
 
+    #: Directory names that are the worker's own mess: its runtime state,
+    #: and the caches its validation gates create by running pytest, ruff
+    #: and mypy. They must never reach a pull request and must never be
+    #: mistaken for a dirty working tree.
+    #:
+    #: `.gitignore` covers all of these in the TrueLock repository. The
+    #: worker does not rely on that: behaviour that depends on the host
+    #: repo's ignore rules breaks silently wherever those rules differ,
+    #: and the failure mode is someone's review filling up with `.pyc`
+    #: files. Matched on any path segment, since `__pycache__` appears at
+    #: every level of a tree, not just the root.
+    SCRATCH_NAMES = frozenset({
+        ".state",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+    })
+
+    @classmethod
+    def is_scratch(cls, path: str) -> bool:
+        """Is this path the worker's own artifact rather than task output?"""
+        return any(
+            segment in cls.SCRATCH_NAMES
+            for segment in str(path).replace("\\", "/").split("/")
+        )
+
     # -- reads --------------------------------------------------------
     def current_branch(self) -> str:
         return self.run("rev-parse", "--abbrev-ref", "HEAD").stdout
@@ -99,7 +126,21 @@ class Git:
         return self.run("rev-parse", "HEAD").stdout
 
     def is_clean(self) -> bool:
-        return not self.run("status", "--porcelain").stdout
+        """Is the tree clean, ignoring the worker's own scratch?
+
+        `.state/` is gitignored in this repository, so it never shows up
+        here — but the worker must not depend on a host repo's ignore
+        rules to decide whether it may start a task. It excludes its own
+        runtime state on exactly the same terms it refuses to commit it
+        (`SCRATCH_NAMES`); everything else still counts as dirty.
+        """
+        for line in self.run("status", "--porcelain", "-uall").stdout.splitlines():
+            entry = line[3:].strip().strip('"') if len(line) > 3 else ""
+            if not entry:
+                continue
+            if not self.is_scratch(entry):
+                return False
+        return True
 
     def branch_exists(self, name: str) -> bool:
         return self.run("rev-parse", "--verify", "--quiet", f"refs/heads/{name}", check=False).ok
@@ -180,6 +221,14 @@ class Git:
             self.run("add", "--", *paths, mutating=True)
         else:
             self.run("add", "-A", mutating=True)
+        # Unstage the worker's own artifacts by exact path, so nested
+        # `__pycache__` directories are caught as well as top-level ones.
+        staged = self.run("diff", "--cached", "--name-only", check=False)
+        scratch = [
+            path for path in staged.stdout.splitlines() if path and self.is_scratch(path)
+        ]
+        if scratch:
+            self.run("reset", "-q", "--", *scratch, check=False, mutating=True)
         if self.dry_run:
             return None
         if not self.run("diff", "--cached", "--quiet", check=False).ok:

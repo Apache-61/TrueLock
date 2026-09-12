@@ -221,3 +221,88 @@ class TestRunId:
         ids = [new_run_id() for _ in range(50)]
         assert len(set(ids)) == 50
         assert all(run_id.startswith("AI-RUN-") for run_id in ids)
+
+
+class TestClaudeEnvelopeParsing:
+    """Parsing the real `claude -p --output-format json` envelope.
+
+    The field names and shapes here are copied from an actual CLI
+    response, not invented, so a CLI upgrade that renames them fails a
+    test instead of silently degrading the ledger.
+    """
+
+    def envelope(self, **overrides):
+        base = {
+            "type": "result",
+            "subtype": "success",
+            "is_error": False,
+            "session_id": "abc-123",
+            "total_cost_usd": 0.0393094,
+            "usage": {
+                "input_tokens": 2,
+                "output_tokens": 9,
+                "cache_read_input_tokens": 36537,
+                "cache_creation_input_tokens": 7977,
+            },
+            "modelUsage": {
+                "claude-sonnet-5": {"inputTokens": 2, "outputTokens": 9, "costUSD": 0.0393094}
+            },
+            "permission_denials": [],
+            "result": '{"task_id": "TASK-001", "status": "DONE", "summary": "did it"}',
+        }
+        base.update(overrides)
+        return base
+
+    def adapter(self):
+        from orchestrator.workers.adapters.claude_code import ClaudeCodeAdapter
+
+        return ClaudeCodeAdapter()
+
+    def test_the_assistant_text_is_unwrapped(self):
+        adapter = self.adapter()
+        text = adapter._unwrap(json.dumps(self.envelope()))
+        assert extract_result(text).summary == "did it"
+
+    def test_usage_is_captured_for_the_ledger(self):
+        adapter = self.adapter()
+        adapter._unwrap(json.dumps(self.envelope()))
+        usage = adapter.last_usage
+        assert usage.input_tokens == 2
+        assert usage.output_tokens == 9
+        assert usage.cached_tokens == 36537
+        assert usage.estimated_cost == pytest.approx(0.0393094)
+        assert usage.request_id == "abc-123"
+
+    def test_the_served_model_is_recorded_not_the_requested_one(self):
+        """The runtime can fall back; a ledger row naming the model we
+        asked for rather than the one that ran misattributes the spend."""
+        adapter = self.adapter()
+        adapter.model = "opus"
+        adapter._unwrap(json.dumps(self.envelope()))
+        assert adapter.last_usage.model == "claude-sonnet-5"
+
+    def test_the_busiest_model_wins_when_several_were_used(self):
+        adapter = self.adapter()
+        adapter._unwrap(json.dumps(self.envelope(modelUsage={
+            "claude-haiku-4-5": {"outputTokens": 5},
+            "claude-sonnet-5": {"outputTokens": 900},
+        })))
+        assert adapter.last_usage.model == "claude-sonnet-5"
+
+    def test_an_error_envelope_is_detected_even_though_the_cli_exits_zero(self):
+        adapter = self.adapter()
+        adapter._unwrap(json.dumps(self.envelope(is_error=True, subtype="error_during_execution")))
+        assert adapter.last_error == "error_during_execution"
+
+    def test_permission_denials_are_captured(self):
+        adapter = self.adapter()
+        adapter._unwrap(json.dumps(self.envelope(
+            permission_denials=[{"tool_name": "Bash"}, {"tool_name": "Write"}]
+        )))
+        assert adapter.last_permission_denials == ["Bash", "Write"]
+
+    def test_unrecognised_output_degrades_rather_than_crashing(self):
+        """A CLI upgrade that changes the envelope must not break the run."""
+        adapter = self.adapter()
+        assert adapter._unwrap("plain text, not json") == "plain text, not json"
+        assert adapter._unwrap("") == ""

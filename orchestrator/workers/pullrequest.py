@@ -48,6 +48,11 @@ def assess_risks(handoff: Handoff, task: TaskSpec, validation_ok: bool) -> list[
             "**Validation did not pass.** This PR is a draft and must not be "
             "merged until the failures below are resolved."
         )
+    if handoff.result is not None and handoff.result.requires_human_review:
+        risks.append(
+            "**The AI asked for human review of this change.** Its reasons are "
+            "under known issues below; read them before merging."
+        )
     elif not handoff.validation_summary.startswith("PASSED"):
         risks.append(
             "**Nothing was verified.** Every validation gate was skipped, so "
@@ -102,8 +107,14 @@ def build_pull_request(
 
     if validation_verified is None:
         validation_verified = validation_ok
+    ai_status = result.status if result else ""
     if not validation_ok:
         status_prefix = "[VALIDATION FAILED] "
+    elif ai_status == "PARTIAL":
+        # The AI qualified its own result; passing tests do not undo that.
+        status_prefix = "[PARTIAL] "
+    elif result is not None and result.requires_human_review:
+        status_prefix = "[NEEDS HUMAN REVIEW] "
     elif not validation_verified:
         status_prefix = "[UNVERIFIED] "
     else:

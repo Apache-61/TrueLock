@@ -335,7 +335,28 @@ python scripts/orchestration/task_cli.py release --issue <number>
 
 ---
 
-## 12. Limits of this MVP
+## 12. Verifying a change to the worker
+
+Offline coverage runs in seconds and needs no credentials:
+
+```bash
+pytest -q tests/unit tests/contract
+```
+
+After changing the adapter — or after the Claude Code CLI is upgraded —
+also run the live test, which drives the whole loop against the real CLI
+in a throwaway repository:
+
+```bash
+WORKER_LIVE_AI_TEST=1 pytest -q tests/integration/test_worker_live_claude.py
+```
+
+It is skipped by default and in CI (`docs/testing.md`). What only it can
+prove is that the CLI is still invoked correctly, that its JSON envelope
+still parses into a valid result, and that real token usage still reaches
+the ledger.
+
+## 13. Limits of this MVP
 
 - **One provider.** Only the Claude Code CLI is wired up. The routing
   layer, `ROUTING_EVENT` logging and the usage ledger are real and
@@ -343,7 +364,12 @@ python scripts/orchestration/task_cli.py release --issue <number>
   multi-provider routing is deliberately not built yet.
 - **Token accounting is as honest as the CLI is.** Costs are recorded
   when the CLI reports them and left null otherwise. The worker never
-  estimates a number for a budget ledger.
+  estimates a number for a budget ledger. The ledger names the model that
+  actually served the turn, which is not always the one requested.
+- **The AI may be unable to run commands.** If the CLI denies its
+  permission requests, the worker records the denials, forces human
+  review, and still runs the validation gates itself — so a run where the
+  AI could not execute tests never passes as if it had.
 - **The claim protocol detects races, it does not prevent them.** That is
   the accepted trade-off in ADR-0003; two claim comments on one issue are
   immediately visible if it ever happens.

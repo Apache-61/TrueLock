@@ -49,6 +49,11 @@ class Outcome:
     """Terminal states for one task attempt."""
 
     DONE = "DONE"
+    #: The AI finished something, but said so itself: the work is
+    #: incomplete. Never upgraded to DONE just because the tests passed
+    #: -- passing tests prove what was written works, not that what was
+    #: asked for got written.
+    PARTIAL = "PARTIAL"
     BLOCKED = "BLOCKED"
     FAILED = "FAILED"
     LOST_CLAIM = "LOST_CLAIM"
@@ -361,14 +366,26 @@ class WorkerRunner:
         handoff.experiment_required = task.task_type == "experiment"
 
         blocked_by_ai = result.status == "BLOCKED"
+        partial_by_ai = result.status == "PARTIAL"
         validation_ok = validation.ok and not blocked_by_ai
         # A PR only looks review-ready when something actually ran and
-        # passed; "nothing was checked" gets a draft, same as a failure.
-        validation_verified = validation.verified and not blocked_by_ai
-        handoff.outcome = (
-            Outcome.BLOCKED if blocked_by_ai
-            else (Outcome.DONE if validation_ok else Outcome.FAILED)
+        # passed, the AI did not qualify its own result, and it did not
+        # ask for a human. Anything else is a draft: "not ready to merge"
+        # is exactly what draft means.
+        validation_verified = (
+            validation.verified
+            and not blocked_by_ai
+            and not partial_by_ai
+            and not result.requires_human_review
         )
+        if blocked_by_ai:
+            handoff.outcome = Outcome.BLOCKED
+        elif not validation_ok:
+            handoff.outcome = Outcome.FAILED
+        elif partial_by_ai:
+            handoff.outcome = Outcome.PARTIAL
+        else:
+            handoff.outcome = Outcome.DONE
         handoff.finished_at = datetime.now(timezone.utc).isoformat()
 
         # -- steps 12/13: handoff + history -------------------------
@@ -403,6 +420,7 @@ class WorkerRunner:
             self._set_labels(task.issue_number, add=["status:review"], remove=["status:claimed"])
         else:
             self._set_labels(task.issue_number, add=["status:blocked"], remove=["status:claimed"])
+
         self.client.add_comment(task.issue_number, self._issue_update(handoff, validation_ok))
 
         # -- after PR: merging is a human decision ------------------
@@ -522,10 +540,19 @@ PARTIAL is more useful to the next worker than an optimistic DONE.
 
     def _record_usage(self, provider, *, status: str, error: str | None = None) -> None:
         usage = getattr(self.adapter, "last_usage", None)
+        # Prefer the model the provider says it actually served: the
+        # runtime can fall back, and a ledger row naming the model we
+        # asked for rather than the one that ran misattributes the spend.
+        model = (
+            getattr(usage, "model", "")
+            or getattr(self.adapter, "model", "")
+            or self.config.model
+            or "default"
+        )
         self.ledger.record(
             provider=provider.provider,
             project=provider.id,
-            model=getattr(self.adapter, "model", "") or self.config.model or "default",
+            model=model,
             status=status,
             request_id=getattr(usage, "request_id", "") or "",
             input_tokens=getattr(usage, "input_tokens", None),

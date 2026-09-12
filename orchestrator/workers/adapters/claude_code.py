@@ -48,6 +48,10 @@ class Usage:
     cached_tokens: int | None = None
     estimated_cost: float | None = None
     request_id: str = ""
+    #: The model the CLI actually served the turn on, which is not
+    #: necessarily the one requested -- the runtime can fall back. The
+    #: ledger records what ran, not what was asked for.
+    model: str = ""
 
 
 @dataclass
@@ -60,6 +64,8 @@ class ClaudeCodeAdapter:
     extra_args: tuple[str, ...] = ()
     last_usage: Usage = field(default_factory=Usage)
     last_duration_s: float = 0.0
+    last_error: str = ""
+    last_permission_denials: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.extra_args:
@@ -86,6 +92,8 @@ class ClaudeCodeAdapter:
             )
 
         command = self.build_command()
+        self.last_error = ""
+        self.last_permission_denials = []
         started = time.monotonic()
         try:
             completed = subprocess.run(
@@ -112,7 +120,40 @@ class ClaudeCodeAdapter:
             )
 
         text = self._unwrap(completed.stdout)
-        return extract_result(text, task_id=task_id)
+        if self.last_error:
+            # The CLI reports some failures in the envelope while still
+            # exiting 0. Trusting the exit code alone would turn a failed
+            # run into a confident "DONE".
+            raise AdapterError(
+                f"the Claude Code CLI reported an error for {task_id}: "
+                f"{self.last_error} -- output: {text.strip()[:400]}"
+            )
+
+        result = extract_result(text, task_id=task_id)
+        if self.last_permission_denials:
+            # The AI was blocked from doing something it tried to do, so
+            # the task is very likely incomplete even if it says DONE.
+            denials = ", ".join(self.last_permission_denials[:5])
+            result.known_issues.append(
+                f"The CLI denied {len(self.last_permission_denials)} permission "
+                f"request(s) during this run ({denials}). The implementation may "
+                "be incomplete; check the diff before trusting the status."
+            )
+            result.requires_human_review = True
+        return result
+
+    @staticmethod
+    def _served_model(envelope: dict) -> str:
+        """The model the CLI actually used, per its `modelUsage` map."""
+        model_usage = envelope.get("modelUsage")
+        if isinstance(model_usage, dict) and model_usage:
+            # One key per model used; the busiest is the one that did the work.
+            def output_tokens(item) -> int:
+                _, stats = item
+                return int(stats.get("outputTokens", 0)) if isinstance(stats, dict) else 0
+
+            return str(max(model_usage.items(), key=output_tokens)[0])
+        return str(envelope.get("model", "") or "")
 
     def _unwrap(self, stdout: str) -> str:
         """Pull the assistant's text out of `--output-format json`.
@@ -142,7 +183,22 @@ class ClaudeCodeAdapter:
                 ),
                 estimated_cost=envelope.get("total_cost_usd"),
                 request_id=str(envelope.get("session_id", "")),
+                model=self._served_model(envelope),
             )
+
+        if envelope.get("is_error"):
+            self.last_error = str(
+                envelope.get("api_error_status")
+                or envelope.get("subtype")
+                or envelope.get("terminal_reason")
+                or "is_error was set in the CLI result envelope"
+            )
+        denials = envelope.get("permission_denials")
+        if isinstance(denials, list) and denials:
+            self.last_permission_denials = [
+                str(denial.get("tool_name", denial)) if isinstance(denial, dict) else str(denial)
+                for denial in denials
+            ]
 
         for key in ("result", "text", "content", "response"):
             value = envelope.get(key)

@@ -78,7 +78,10 @@ to `tasks/active/`.
 
 ## Tests
 
-`pytest -q` → **334 passed, 0 failed** (baseline before this task: 28).
+`pytest -q` → **352 passed, 9 skipped, 0 failed** (baseline before this
+task: 28). The 9 skipped are the live-AI integration tests, which are
+opt-in; with `WORKER_LIVE_AI_TEST=1` they pass too, against the real
+Claude Code CLI.
 
 New coverage, by the rule it protects:
 
@@ -118,6 +121,56 @@ have been silent in production:
 4. Push retried a permanent failure (no such remote) four times with
    exponential backoff. Now only genuinely transient failures are retried.
 
+## Follow-up: live verification against the real Claude Code CLI
+
+The first version of this work was tested entirely offline, and the
+handoff listed "the Claude Code adapter has not been exercised against a
+paid API" as its main open risk. That has now been closed: the whole loop
+was run against the real CLI in a throwaway repository, with a small but
+genuine task ("add a `median()` helper with tests"). It is captured as an
+opt-in test, `tests/integration/test_worker_live_claude.py`, skipped
+unless `WORKER_LIVE_AI_TEST=1` so CI stays free and fast.
+
+**It worked** — claim → branch → real Claude Code → validation → draft or
+normal PR, with real token usage in the ledger ($0.24, 4.3k output tokens,
+model recorded as `claude-sonnet-5`). The AI's code was correct: the test
+runs `median()` itself rather than trusting the status that came back.
+
+It also surfaced five defects that no amount of offline testing would
+have found, because each depended on what the real CLI actually does:
+
+1. **A self-declared PARTIAL was promoted to DONE** whenever validation
+   happened to pass. Passing tests prove that what was written works, not
+   that what was asked for got written. `PARTIAL` is now its own outcome
+   and opens a draft PR titled `[PARTIAL]`.
+2. **A run the AI explicitly flagged `requires_human_review` opened as a
+   normal, merge-ready PR.** It is now a draft titled
+   `[NEEDS HUMAN REVIEW]`, with the AI's reasons in the risks section.
+3. **`is_error` in the CLI envelope was ignored.** The CLI can report a
+   failure while still exiting 0, so trusting the exit code alone turned
+   a failed run into a confident DONE.
+4. **Permission denials were invisible.** In the first live run the CLI
+   denied 8 of the AI's `Bash` requests, so it could not run the tests it
+   wrote — and said so honestly in its summary. The worker now records
+   denials, appends them to known issues, and forces human review. (The
+   design held up here: the worker runs the validation gates itself, so
+   the AI being unable to run tests did not produce a false pass.)
+5. **The worker committed its own scratch into the branch.** `.state/`,
+   and then `__pycache__/` from its own validation run, were landing in
+   the PR in any repository whose `.gitignore` does not cover them —
+   which is not something the worker should depend on. Worker artifacts
+   are now excluded from commits at any path depth, and excluded from the
+   clean-tree check too, so they no longer strand a continuous run after
+   one task.
+
+Two of these — 1 and 2 — were the worker overstating what the AI itself
+had said, which is precisely the failure mode the rest of the design
+guards against. They are now pinned by unit tests as well as the live one.
+
+The ledger also now records the model that actually served the turn
+(`modelUsage`) rather than the one requested, since the runtime can fall
+back and a row naming the wrong model misattributes the spend.
+
 ## Known issues / limitations
 
 1. **Single provider.** Only the Claude Code CLI is wired up; TASK-007
@@ -128,10 +181,12 @@ have been silent in production:
    therefore unreachable in practice even when explicitly enabled; the
    policy gate exists so that adding CI-awaiting later cannot quietly
    widen what may be merged.
-3. **The Claude Code adapter has not been exercised against a paid API in
-   this session.** The loop is proven end to end with the mock adapter and
-   against the live GitHub API in dry-run. The first live `worker start
-   --once` on a real task should be watched by a human.
+3. **The adapter is now proven against the real CLI, but not against the
+   real repository.** The live test (above) runs the full loop with a
+   genuine AI in a throwaway repository and an in-memory GitHub. What has
+   still never happened is a live `worker start --once` against
+   `Apache-61/TrueLock` itself, which would claim a real issue and open a
+   real PR. The first one should be watched by a human.
 4. **The CLI's JSON envelope is version-sensitive.** Token counts are read
    from `--output-format json` when present and left null otherwise; the
    worker never estimates a cost. A CLI upgrade that renames those fields

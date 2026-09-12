@@ -26,6 +26,20 @@ matter to someone re-reading this in a week, it doesn't go here.
   ledger (`orchestrator/routing/`).
 - Handoff contract `orchestrator/policies/task-result.schema.json`,
   validated against real worker output in `tests/contract/`.
+- Opt-in live test driving the worker with the real Claude Code CLI
+  (`WORKER_LIVE_AI_TEST=1`; skipped in CI). See `docs/testing.md`.
+
+### Fixed
+- The worker no longer overstates what the AI reported: a self-declared
+  `PARTIAL`, or a run the AI flagged for human review, opens a clearly
+  labelled draft PR instead of a merge-ready one.
+- Errors the Claude Code CLI reports in its result envelope while still
+  exiting 0 are now detected, and denied tool-permission requests are
+  recorded and force human review.
+- Worker scratch (`.state/`, and the `__pycache__`/cache directories its
+  own validation run creates) is never committed into a task branch and
+  never counts as a dirty working tree, regardless of the repository's
+  `.gitignore`.
 
 No forensic-agent, detector, or frontend functionality exists yet — this
 release is infrastructure and automation only.

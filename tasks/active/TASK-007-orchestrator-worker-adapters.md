@@ -97,6 +97,13 @@ Acceptance criteria:
 - [x] **`orchestrator/README.md` updated** with real usage instructions,
       plus a full guide at `docs/orchestration/worker-setup.md`.
 
+Verified against the real Claude Code CLI on 2026-09-12: the full loop
+was run with a genuine AI in a throwaway repository
+(`tests/integration/test_worker_live_claude.py`, opt-in via
+`WORKER_LIVE_AI_TEST=1`). That run found and fixed five defects that
+offline testing could not reach — see the "Follow-up" section of
+`history/ai-activity/2026-09-12-task-007-ai-development-worker.md`.
+
 Deviations from the task as written, and why:
 
 1. **No Gemini adapter.** The task names `claude.py` *and* `gemini.py`.
