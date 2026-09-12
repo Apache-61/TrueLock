@@ -6,13 +6,14 @@
 > one-glance pulse check instead, see `STATUS.md`. Update this file as part
 > of any task that changes what's implemented, blocked, or decided.
 
-**Last updated:** 2026-09-12 · **Updated by:** bootstrap (repository
-infrastructure pass)
+**Last updated:** 2026-09-12 · **Updated by:** TASK-007 (AI development
+worker MVP)
 
 ## Current version
 
-`v0.0.0-bootstrap` — no product code yet. This is the repository
-infrastructure/coordination layer only.
+`v0.0.1-worker` — still no *product* code (no detector, agent, or UI).
+What is new since bootstrap is the automation layer: an AI development
+worker that can claim a task and carry it to an open pull request.
 
 ## Current architecture
 
@@ -40,12 +41,32 @@ necessary).
   source of truth for task claims.
 - Baseline contract tests validating that every JSON Schema file is
   well-formed and internally consistent (`tests/contract/`).
+- **AI development worker** (`orchestrator/workers/`, TASK-007): a
+  `worker start` command that takes a task from the GitHub queue to an
+  open pull request —
+  `TASK → CLAIM → BRANCH → CLAUDE → TEST → HISTORY → PR`. Claims and
+  verifies (ADR-0003), gates on dependencies and authorization, enforces
+  the task's `allowed_paths`, builds a bounded context pack, runs the
+  Claude Code CLI, validates (formatter → lint → types → unit →
+  integration), writes the handoff and `history/ai-activity/` entry, and
+  opens a PR. It never touches `main` and never merges (ADR-0005).
+  Setup and operation: `docs/orchestration/worker-setup.md`.
+- Provider routing with `ROUTING_EVENT` logging and a per-call usage
+  ledger (`orchestrator/routing/`), plus the handoff schema
+  (`orchestrator/policies/task-result.schema.json`).
+- Test suite grown from 28 to 334 passing tests, covering the claim race,
+  scope enforcement, dependency gating, validation honesty, the merge
+  policy, and the whole loop end to end offline.
 
 ## In progress
 
-Nothing — this bootstrap pass is the first commit. The first real
-implementation tasks are queued in `tasks/ready/` (see also the GitHub
-issues opened alongside this commit).
+`TASK-007` (orchestrator worker adapters) — implemented, PR open, awaiting
+human review. Everything else is queued in `tasks/ready/` and mirrored as
+GitHub issues.
+
+The critical-path tasks (`TASK-001` onwards) are unstarted. With the
+worker in place they can now be executed by a workstation running
+`worker start --once` rather than by hand.
 
 ## Blocked
 
@@ -53,6 +74,13 @@ issues opened alongside this commit).
   scoring-specific requirements are inferred from the working project
   brief. Reconcile against the real PDF before freezing anything in
   `docs/challenge/` as final — see `docs/challenge/README.md`.
+- **Repository labels still do not exist.** `status:ready`,
+  `priority:P0` and the rest are referenced by the issue templates,
+  `tasks/README.md`, and the worker, but have never been created. The
+  worker handles this — it falls back to reading task state from issue
+  bodies and treats label updates as advisory — but until
+  `scripts/setup/create_labels.sh` is run, task state is only visible by
+  reading issue bodies and claim comments.
 - **GitHub repo-admin actions this session could not perform**: creating
   labels, setting branch protection rules, and creating a GitHub Project
   board. The MCP GitHub tool surface available to this session exposes
@@ -83,6 +111,10 @@ optional and outside the critical path.
   (`ARCHITECTURE.md` §6, operating pack §12).
 - Whether to introduce a graph database — only if NetworkX proves too slow
   on the real/synthetic dataset size.
+- Whether the development worker should wait for CI and auto-merge
+  pre-authorized simple tasks. The policy gate exists and is tested
+  (ADR-0005); nothing enables it today, and the default stays "a human
+  merges."
 - Final frontend graph library choice (Cytoscape.js is the default; not
   yet spiked).
 
@@ -96,7 +128,12 @@ See `tasks/ready/` and the mirrored GitHub issues. In dependency order:
 4. `TASK-004` — Detector framework + first 3 deterministic detectors (duplicate invoice, invoice-payment mismatch, 69-B correlation) (Agent C)
 5. `TASK-005` — Agent tool implementations backing `docs/contracts/agent-tools.md` (Agent D)
 6. `TASK-006` — Frontend shell against the mocked API contract (Agent A)
-7. `TASK-007` — Orchestrator worker adapters (Claude/Gemini) on top of `scripts/orchestration/task_cli.py`
+7. `TASK-007` — Orchestrator worker adapters **(implemented; PR open,
+   awaiting review)**
+
+Once `TASK-007` merges, tasks 1-6 can each be executed by a workstation
+running `worker start --once` — subject to the same dependency order
+above, which the worker enforces itself. (Claude/Gemini) on top of `scripts/orchestration/task_cli.py`
 
 ## Demo readiness
 

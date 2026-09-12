@@ -8,10 +8,10 @@ full conversation transcripts, and stay within budget. See
 are the source of truth rather than a bespoke server.
 
 **What goes here:** `task_queue/` (mirrors GitHub Issues for readability),
-`workers/` (adapters that invoke Claude/Gemini to implement a claimed
-task — not yet built, see `tasks/ready/TASK-007-orchestrator-worker-adapters.md`),
-`routing/` (which provider/model handles a task, per the tier system
-below), `policies/` (provider pool, budgets, model-tier rules), `state/`
+`workers/` (the AI development worker — adapters that invoke Claude to
+implement a claimed task, and the loop around them), `routing/` (which
+provider/model handles a task, per the tier system below), `policies/`
+(provider pool, budgets, model-tier rules, handoff schema), `state/`
 (local runtime state — gitignored, never a source of truth, see
 `.gitignore`).
 
@@ -20,9 +20,37 @@ orchestrator builds the repository; the forensic agent investigates
 financial data. Never mix the two prompts/authorities
 (`ARCHITECTURE.md` §6/§57).
 
+## Running the worker
+
+```bash
+export WORKER_ID="WORKER-01"
+export PATH="$PWD/scripts/orchestration:$PATH"
+
+worker doctor                  # check this machine's setup
+worker start --once --dry-run  # rehearse: changes nothing, calls no paid API
+worker start --once            # claim and execute one task
+worker start --continuous --max-tasks 5 --max-runtime 90
+```
+
+Full installation, authentication, commands and troubleshooting:
+[`docs/orchestration/worker-setup.md`](../docs/orchestration/worker-setup.md).
+
+Safety limits: `--once` (the default), `--continuous`, `--max-tasks N`,
+`--max-runtime MINUTES`, `--dry-run`. A continuous run stops when no
+eligible READY task remains, a task ends BLOCKED, a task needs human
+authorization, a critical error occurs, or a limit is reached.
+
+The worker **never merges**. Every run ends at an open pull request and a
+human decides (`CONTRIBUTING.md` §5). See
+`orchestrator/workers/merge_policy.py` for the three independent
+conditions `--allow-auto-merge` requires before it would merge even a
+pre-authorized simple task.
+
 ## AI task execution protocol
 
-Every worker (human or AI) follows this sequence for a task:
+Every worker (human or AI) follows this sequence for a task. Steps 1-12
+are what `worker start` automates; a human doing it by hand follows the
+same list.
 
 ```
 1. READ REPO             (PROJECT_STATE.md, relevant docs/contracts/)
@@ -47,6 +75,9 @@ the task explicitly says autonomous chaining is allowed.
 Every completed (or blocked) task produces this, either as a
 `task-result.json` file attached to the PR/issue or as the PR
 description body:
+
+The schema is `orchestrator/policies/task-result.schema.json`, validated
+against real worker output in `tests/contract/`.
 
 ```json
 {
@@ -84,10 +115,29 @@ applies here too: never silently switch).
 
 ## What's implemented vs. not, right now
 
-Implemented: the claim/verify protocol
-(`scripts/orchestration/task_cli.py`), the provider-pool policy file, the
-usage-ledger schema. Not implemented: automated worker adapters that
-actually invoke Claude/Gemini to write code
-(`tasks/ready/TASK-007-orchestrator-worker-adapters.md`) — that requires
-human authorization per `CONTRIBUTING.md` §5 (new infrastructure that
-calls paid APIs autonomously).
+**Implemented:**
+
+- the claim/verify protocol, twice over: manually via
+  `scripts/orchestration/task_cli.py`, and inside the worker
+  (`orchestrator/workers/claim.py`). Both emit and parse the same wire
+  format, so a human and a worker contend correctly against each other —
+  asserted by `tests/unit/test_worker_claim.py`;
+- the AI development worker (`orchestrator/workers/`): claim, dependency
+  and scope gates, isolated branch, bounded context pack, Claude Code
+  execution, validation pipeline, handoff, history entry, and PR;
+- provider routing with `ROUTING_EVENT` logging and the per-call usage
+  ledger (`orchestrator/routing/`);
+- the provider-pool policy, the usage-ledger schema, and the handoff
+  schema (`orchestrator/policies/`).
+
+**Not implemented, deliberately:**
+
+- **Gemini and multi-provider routing.** One provider (the Claude Code
+  CLI) is wired up. The routing layer is real, so adding Gemini is a
+  registration rather than a rewrite — but the end-to-end loop had to
+  work first.
+- **Waiting for CI.** The worker opens the PR and stops; it does not poll
+  for the result.
+- **Auto-merge in practice.** The policy gate exists and is tested, but
+  the default — and the only behaviour anyone should rely on — is that a
+  human merges.

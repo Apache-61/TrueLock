@@ -14,5 +14,18 @@ matter to someone re-reading this in a week, it doesn't go here.
   GitHub governance files (CODEOWNERS, PR/issue templates, CI baseline),
   and the orchestrator claim-protocol script.
 
+- AI development worker (`orchestrator/workers/`): a `worker start`
+  command that claims a task from the GitHub queue, creates an isolated
+  branch, runs the Claude Code CLI against a bounded context pack,
+  enforces the task's `allowed_paths`, runs the validation gates, writes
+  the handoff and history entry, and opens a pull request. Safety limits
+  (`--once`, `--continuous`, `--max-tasks`, `--max-runtime`,
+  `--dry-run`); never touches `main`, never merges (ADR-0005).
+  See `docs/orchestration/worker-setup.md`.
+- Provider routing with `ROUTING_EVENT` logging and a per-call usage
+  ledger (`orchestrator/routing/`).
+- Handoff contract `orchestrator/policies/task-result.schema.json`,
+  validated against real worker output in `tests/contract/`.
+
 No forensic-agent, detector, or frontend functionality exists yet — this
-release is infrastructure only.
+release is infrastructure and automation only.

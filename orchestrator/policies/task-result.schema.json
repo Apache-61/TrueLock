@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/task-result.schema.json",
+  "title": "AI worker task result (handoff)",
+  "description": "The AI-to-AI handoff produced by every task execution. Frozen shape from orchestrator/README.md -> 'AI-to-AI handoff format'. The next worker reads this plus the repository state -- never a conversation transcript.",
+  "type": "object",
+  "required": [
+    "task_id",
+    "status",
+    "summary",
+    "changed_files",
+    "tests",
+    "new_dependencies",
+    "known_issues",
+    "documentation_changes",
+    "next_recommended_tasks",
+    "requires_human_review"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "TASK-### as it appears on the GitHub issue.",
+      "examples": ["TASK-007"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["DONE", "PARTIAL", "BLOCKED", "FAILED", "PROPOSAL", "LOST_CLAIM", "SKIPPED", "UNKNOWN"],
+      "description": "DONE/PARTIAL mean code was written and validation ran. BLOCKED means the worker stopped deliberately (scope, missing dependency). PROPOSAL means the task needed human authorization, so no code was written."
+    },
+    "summary": {
+      "type": "string",
+      "description": "What was actually done. Never inferred: if the AI returned no summary, this says so."
+    },
+    "changed_files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Repository-relative paths, all of which must lie inside the task's allowed_paths."
+    },
+    "tests": {
+      "type": "object",
+      "required": ["passed", "failed", "skipped"],
+      "additionalProperties": false,
+      "properties": {
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Gates that did not run. Never counted as passed."
+        },
+        "details": { "type": "string" }
+      }
+    },
+    "new_dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Anything added to a requirements/package file. A non-empty list requires human authorization (CONTRIBUTING.md 5)."
+    },
+    "known_issues": { "type": "array", "items": { "type": "string" } },
+    "documentation_changes": { "type": "array", "items": { "type": "string" } },
+    "next_recommended_tasks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Canonical spelling, per orchestrator/README.md."
+    },
+    "recommended_next_tasks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Alias of next_recommended_tasks, emitted so readers using either spelling work. Always identical in content."
+    },
+    "requires_human_review": {
+      "type": "boolean",
+      "description": "Forced true by an ADR requirement, an experiment, or a scope violation."
+    },
+    "run": {
+      "type": "object",
+      "description": "Provenance for this execution: who ran it, where, and what the worker observed.",
+      "additionalProperties": true,
+      "properties": {
+        "run_id": { "type": "string" },
+        "worker_id": { "type": "string" },
+        "issue": { "type": "integer" },
+        "branch": { "type": "string" },
+        "started_at": { "type": "string" },
+        "finished_at": { "type": "string" },
+        "validation": { "type": "string" },
+        "pull_request": { "type": "string" },
+        "adr_required": { "type": "array", "items": { "type": "string" } },
+        "experiment_record_required": { "type": "boolean" },
+        "scope_violations": { "type": "array", "items": { "type": "string" } },
+        "routing_events": { "type": "array", "items": { "type": "string" } },
+        "context_included": { "type": "array", "items": { "type": "string" } },
+        "context_omitted": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
