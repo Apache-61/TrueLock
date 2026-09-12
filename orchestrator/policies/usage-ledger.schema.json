@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/usage-ledger-entry.schema.json",
+  "title": "Usage ledger entry",
+  "description": "One row per model API call, for cost/budget tracking. See research/ai/README.md, orchestrator/policies/provider-pool.yaml.",
+  "type": "object",
+  "required": ["provider", "project", "model", "request_id", "timestamp", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "provider": { "type": "string", "examples": ["google"] },
+    "project": { "type": "string", "examples": ["gemini-project-a"] },
+    "model": { "type": "string", "examples": ["gemini-2.5-flash"] },
+    "request_id": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "input_tokens": { "type": ["integer", "null"] },
+    "output_tokens": { "type": ["integer", "null"] },
+    "cached_tokens": { "type": ["integer", "null"] },
+    "estimated_cost": { "type": ["number", "null"] },
+    "status": { "type": "string", "enum": ["ok", "error", "retried", "routed"] },
+    "error": { "type": ["string", "null"] }
+  }
+}

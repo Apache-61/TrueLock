@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/payment.schema.json",
+  "title": "Payment",
+  "description": "Settlement of an Invoice, per SAT's payment-complement model. A Payment is distinct from a Transaction: INVOICE -> PAYMENT -> BANK TRANSACTION (research/sat/README.md).",
+  "type": "object",
+  "required": ["id", "related_invoice_uuid", "payment_date", "amount"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "related_invoice_uuid": { "type": "string", "format": "uuid" },
+    "payment_date": { "type": "string", "format": "date" },
+    "amount": { "type": "number" },
+    "payment_form": { "type": "string" },
+    "currency": { "type": "string", "default": "MXN" },
+    "previous_balance": { "type": ["number", "null"] },
+    "remaining_balance": { "type": ["number", "null"] },
+    "transaction_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "One or more underlying bank Transactions that settle this payment."
+    }
+  }
+}

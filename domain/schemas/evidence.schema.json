@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/evidence.schema.json",
+  "title": "Evidence",
+  "description": "A single, sourced claim gathered while investigating a Lead. Distinct from a Signal (a detector's raw output) and from an Inference (a conclusion drawn from evidence) — see docs/contracts/evidence.md.",
+  "type": "object",
+  "required": ["evidence_id", "type", "source_type", "source_id", "claim", "strength"],
+  "additionalProperties": false,
+  "properties": {
+    "evidence_id": { "type": "string", "examples": ["E-001"] },
+    "type": { "type": "string", "enum": ["TRANSACTION", "INVOICE", "REGULATORY_STATUS", "RELATIONSHIP", "DOCUMENT"] },
+    "source_type": { "type": "string", "examples": ["BANK_RECORD", "CFDI", "SAT_69B", "CORPORATE_REGISTRY"] },
+    "source_id": { "type": "string" },
+    "claim": { "type": "string", "description": "One sentence, concretely falsifiable, e.g. 'Payment of 842000 MXN occurred on 2026-08-13.'" },
+    "strength": {
+      "type": "string",
+      "enum": ["DIRECT", "CORROBORATING", "CIRCUMSTANTIAL"],
+      "description": "DIRECT: proves the claim outright. CORROBORATING: supports another piece of evidence. CIRCUMSTANTIAL: consistent with but does not prove the hypothesis."
+    },
+    "gathered_by_step_id": { "type": "string", "description": "investigation_step step_id that produced this evidence." }
+  }
+}

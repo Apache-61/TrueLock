@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contracts-and-tests:
+    name: Contract validation + pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run pytest (unit + contract + integration + e2e + scenarios)
+        run: pytest -v
+
+  frontend:
+    name: Frontend build (skips if frontend/ doesn't exist yet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for frontend
+        id: check
+        run: |
+          if [ -f frontend/package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true'
+        with:
+          node-version: "20"
+      - name: Install
+        if: steps.check.outputs.exists == 'true'
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        if: steps.check.outputs.exists == 'true'
+        working-directory: frontend
+        run: npm run lint --if-present
+      - name: Type check
+        if: steps.check.outputs.exists == 'true'
+        working-directory: frontend
+        run: npm run typecheck --if-present
+      - name: Build
+        if: steps.check.outputs.exists == 'true'
+        working-directory: frontend
+        run: npm run build --if-present
+      - name: No frontend yet
+        if: steps.check.outputs.exists == 'false'
+        run: echo "frontend/ has no package.json yet - skipping (see tasks/ready/TASK-006-frontend-shell.md)"

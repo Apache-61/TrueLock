@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/investigation_step.schema.json",
+  "title": "Investigation Step",
+  "description": "One tool call made by the agent while pursuing a Lead, plus its typed decision. This is the structured-output contract from ARCHITECTURE.md §6/§9 — the frontend and orchestration code consume this, never free-text agent output. See docs/contracts/investigation.md.",
+  "type": "object",
+  "required": ["step_id", "lead_id", "action", "tool", "reason", "decision"],
+  "additionalProperties": false,
+  "properties": {
+    "step_id": { "type": "string", "examples": ["I-007"] },
+    "lead_id": { "type": "string" },
+    "action": { "type": "string", "examples": ["TRACE_OUTGOING_FUNDS", "CHECK_69B_STATUS"] },
+    "tool": { "type": "string", "description": "Tool name from docs/contracts/agent-tools.md." },
+    "reason": { "type": "string", "description": "Why this tool was called now — must be answerable to a judge." },
+    "inputs": { "type": "object" },
+    "result_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of records or Evidence this step produced or touched."
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["FOLLOW", "DISCARD", "ESCALATE", "CONCLUDE"],
+      "description": "FOLLOW: keep investigating this branch. DISCARD: stop, insufficient signal. ESCALATE: flag for human review. CONCLUDE: enough evidence to write the Case."
+    },
+    "next_action": { "type": ["string", "null"] }
+  }
+}
