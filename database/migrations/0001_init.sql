@@ -4,14 +4,14 @@
 -- authorization (CONTRIBUTING.md §5) and a new migration file, never an
 -- edit to this one once applied anywhere.
 
-CREATE TABLE entities (
+CREATE TABLE IF NOT EXISTS entities (
     id          TEXT PRIMARY KEY,
     rfc         VARCHAR(13),
     name        TEXT NOT NULL,
     entity_type TEXT NOT NULL CHECK (entity_type IN ('company', 'individual'))
 );
 
-CREATE TABLE providers (
+CREATE TABLE IF NOT EXISTS providers (
     rfc                 VARCHAR(13) PRIMARY KEY,
     name                TEXT NOT NULL,
     registration_date   DATE,
@@ -24,13 +24,13 @@ CREATE TABLE providers (
     -- never treated as a fraud label by itself.
 );
 
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
     account_no  VARCHAR(32) PRIMARY KEY,
     entity_id   TEXT NOT NULL REFERENCES entities(id),
     bank        TEXT
 );
 
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
     uuid            UUID PRIMARY KEY,
     version         TEXT DEFAULT '4.0',
     provider_rfc    VARCHAR(13) NOT NULL REFERENCES providers(rfc),
@@ -48,7 +48,7 @@ CREATE TABLE invoices (
 
 -- INVOICE -> PAYMENT -> TRANSACTION stay distinct layers.
 -- See docs/contracts/domain.md, "why three layers, not one".
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     id                      TEXT PRIMARY KEY,
     related_invoice_uuid    UUID NOT NULL REFERENCES invoices(uuid),
     payment_date            DATE NOT NULL,
@@ -59,7 +59,7 @@ CREATE TABLE payments (
     remaining_balance       NUMERIC(14, 2)
 );
 
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id                  TEXT PRIMARY KEY,
     from_account        VARCHAR(32) NOT NULL REFERENCES accounts(account_no),
     to_account          VARCHAR(32) NOT NULL REFERENCES accounts(account_no),
@@ -74,7 +74,7 @@ CREATE TABLE transactions (
 -- The final case file is stored as JSONB here instead of a separate
 -- document store (see history/decisions/ADR-0004-sponsor-tech-scope.md
 -- re: MongoDB decision).
-CREATE TABLE case_files (
+CREATE TABLE IF NOT EXISTS case_files (
     case_id             TEXT PRIMARY KEY,
     generated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     status              TEXT NOT NULL CHECK (status IN ('SUBSTANTIATED', 'UNSUBSTANTIATED', 'INSUFFICIENT_EVIDENCE')),
@@ -85,8 +85,8 @@ CREATE TABLE case_files (
     solana_tx_signature TEXT                -- NULL unless notarized
 );
 
-CREATE INDEX idx_invoices_provider ON invoices(provider_rfc);
-CREATE INDEX idx_payments_invoice ON payments(related_invoice_uuid);
-CREATE INDEX idx_transactions_from ON transactions(from_account);
-CREATE INDEX idx_transactions_to ON transactions(to_account);
-CREATE INDEX idx_transactions_payment ON transactions(related_payment_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_provider ON invoices(provider_rfc);
+CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(related_invoice_uuid);
+CREATE INDEX IF NOT EXISTS idx_transactions_from ON transactions(from_account);
+CREATE INDEX IF NOT EXISTS idx_transactions_to ON transactions(to_account);
+CREATE INDEX IF NOT EXISTS idx_transactions_payment ON transactions(related_payment_id);
