@@ -100,14 +100,36 @@ class GitHubClient:
 
     # -- reads --------------------------------------------------------
     def list_issues(self, *, labels: str = "", state: str = "open", per_page: int = 100) -> list[dict]:
-        query: dict[str, str] = {"state": state, "per_page": str(per_page)}
-        if labels:
-            query["labels"] = labels
-        path = f"/repos/{self.owner}/{self.repo}/issues?{urllib.parse.urlencode(query)}"
-        issues = self._read(path) or []
+        """Every matching issue, following pagination to the end.
+
+        Paging is not optional here. GitHub returns at most 100 items per
+        page and counts pull requests against that budget, so a
+        single-page read starts silently dropping tasks as soon as the
+        queue passes ~100 issues. A worker that cannot see a task reports
+        "no eligible task" and stops -- which looks exactly like an empty
+        queue, on every machine at once.
+        """
+        collected: list[dict] = []
+        page = 1
+        while True:
+            query: dict[str, str] = {
+                "state": state,
+                "per_page": str(per_page),
+                "page": str(page),
+            }
+            if labels:
+                query["labels"] = labels
+            path = f"/repos/{self.owner}/{self.repo}/issues?{urllib.parse.urlencode(query)}"
+            batch = self._read(path) or []
+            collected.extend(batch)
+            if len(batch) < per_page:
+                break
+            page += 1
+            if page > 50:  # 5000 issues: a runaway loop, not a real queue.
+                break
         # The issues endpoint also returns pull requests; the worker only
         # ever wants real issues.
-        return [issue for issue in issues if "pull_request" not in issue]
+        return [issue for issue in collected if "pull_request" not in issue]
 
     def get_issue(self, number: int) -> dict:
         return self._read(f"/repos/{self.owner}/{self.repo}/issues/{number}")
@@ -143,6 +165,47 @@ class GitHubClient:
         quoted = urllib.parse.quote(label, safe="")
         return self._write(
             "DELETE", f"/repos/{self.owner}/{self.repo}/issues/{number}/labels/{quoted}"
+        )
+
+    def create_issue(
+        self, *, title: str, body: str, labels: list[str] | None = None
+    ) -> dict:
+        """Open a task issue. Used by `scripts/orchestration/seed_backlog.py`."""
+        payload: dict[str, Any] = {"title": title, "body": body}
+        if labels:
+            payload["labels"] = labels
+        return self._write("POST", f"/repos/{self.owner}/{self.repo}/issues", payload)
+
+    def update_issue(
+        self,
+        number: int,
+        *,
+        title: str | None = None,
+        body: str | None = None,
+        labels: list[str] | None = None,
+        state: str | None = None,
+    ) -> dict:
+        """Edit an existing task issue in place.
+
+        The seeder re-renders the backlog on every run, so this has to be
+        an update rather than a create: opening a second issue for a task
+        that already has one splits its claim history, and the claim
+        protocol's guarantee is only as good as there being exactly one
+        thread per task.
+        """
+        payload: dict[str, Any] = {}
+        if title is not None:
+            payload["title"] = title
+        if body is not None:
+            payload["body"] = body
+        if labels is not None:
+            payload["labels"] = labels
+        if state is not None:
+            payload["state"] = state
+        if not payload:
+            return {}
+        return self._write(
+            "PATCH", f"/repos/{self.owner}/{self.repo}/issues/{number}", payload
         )
 
     def create_pull_request(
@@ -232,6 +295,32 @@ class FakeGitHubClient:
         }
         self.issues[number] = issue
         self.comments.setdefault(number, [])
+        return issue
+
+    def create_issue(self, *, title: str, body: str, labels: list[str] | None = None) -> dict:
+        number = max(self.issues, default=0) + 1
+        self.recorded.append(RecordedCall("POST", "/issues", {"title": title}))
+        return self.add_issue(number, title, body, labels)
+
+    def update_issue(
+        self,
+        number: int,
+        *,
+        title: str | None = None,
+        body: str | None = None,
+        labels: list[str] | None = None,
+        state: str | None = None,
+    ) -> dict:
+        issue = self.get_issue(number)
+        self.recorded.append(RecordedCall("PATCH", f"/issues/{number}", {"title": title}))
+        if title is not None:
+            issue["title"] = title
+        if body is not None:
+            issue["body"] = body
+        if labels is not None:
+            issue["labels"] = [{"name": name} for name in labels]
+        if state is not None:
+            issue["state"] = state
         return issue
 
     def list_issues(self, *, labels: str = "", state: str = "open", per_page: int = 100) -> list[dict]:

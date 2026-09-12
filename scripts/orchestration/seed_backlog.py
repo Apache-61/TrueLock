@@ -1,0 +1,320 @@
+#!/usr/bin/env python3
+"""Seed the real task queue from `orchestrator/task_queue/backlog.py`.
+
+    seed_backlog.py --dry-run     show what would change, touch nothing
+    seed_backlog.py --render-only rewrite tasks/ mirrors, skip GitHub
+    seed_backlog.py               render mirrors and sync GitHub issues
+
+Two outputs, one source:
+
+* `tasks/ready/TASK-###-*.md` -- the human-readable mirror.
+* GitHub issues -- the machine-readable queue the worker claims from,
+  and the source of truth for task state (ADR-0003).
+
+The sync is idempotent and **updates in place**. A task that already has
+an issue (`existing_issue`, or a matching `TASK-###` in an open issue
+title) is edited, never re-created: a second issue for one task splits
+its claim history in two, and the claim protocol can only prevent
+duplicate work while there is exactly one comment thread per task.
+
+Refuses to run against an invalid backlog. A dependency cycle would leave
+every worker reporting "no eligible task" with no explanation, which is
+among the harder failures to diagnose from four machines at once.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
+
+from orchestrator.task_queue.backlog import (  # noqa: E402
+    BACKLOG,
+    TaskDefinition,
+    by_id,
+    depth,
+    render_graph,
+    validate,
+)
+from orchestrator.workers.github import GitHubClient, GitHubError  # noqa: E402
+
+TASK_ID_IN_TITLE = re.compile(r"\bTASK-(\d{1,4})\b")
+
+#: Which mirror folder a status belongs in (`tasks/README.md`).
+MIRROR_FOLDER = {
+    "READY": "ready",
+    "CLAIMED": "active",
+    "IN_PROGRESS": "active",
+    "MERGED": "completed",
+    "VERIFIED": "completed",
+    "BLOCKED": "blocked",
+}
+
+
+def mirror_folder(task: TaskDefinition) -> str:
+    return MIRROR_FOLDER.get(task.status, "backlog")
+
+
+def seedable(tasks: tuple[TaskDefinition, ...]) -> tuple[TaskDefinition, ...]:
+    """The tasks the seeder may write.
+
+    Completed work is excluded. A merged task stays in `BACKLOG` because
+    later tasks depend on it and the graph has to resolve, but its issue
+    and its mirror file are the historical record of what was actually
+    done -- re-rendering them from a one-line backlog entry would
+    overwrite that record with a stub.
+    """
+    return tuple(task for task in tasks if task.status not in ("MERGED", "VERIFIED"))
+
+
+def render_mirrors(repo_root: Path, tasks: tuple[TaskDefinition, ...], *, dry_run: bool) -> list[str]:
+    """Write one Markdown file per task, and remove superseded ones.
+
+    Stale removal matters: a task whose title changed would otherwise
+    leave its old file behind, and `worker start --dry-run` seeds its
+    offline queue from these files -- it would rehearse against a task
+    that no longer exists.
+    """
+    changes: list[str] = []
+    wanted: dict[Path, str] = {}
+    for task in tasks:
+        path = repo_root / "tasks" / mirror_folder(task) / task.mirror_filename
+        wanted[path] = task.render_markdown()
+
+    known_ids = {task.task_id for task in tasks}
+    for folder in ("backlog", "ready", "active", "blocked", "completed"):
+        directory = repo_root / "tasks" / folder
+        if not directory.is_dir():
+            continue
+        for existing in sorted(directory.glob("TASK-*.md")):
+            match = TASK_ID_IN_TITLE.search(existing.name)
+            if not match:
+                continue
+            task_id = f"TASK-{int(match.group(1)):03d}"
+            if task_id in known_ids and existing not in wanted:
+                changes.append(f"remove stale mirror {existing.relative_to(repo_root)}")
+                if not dry_run:
+                    existing.unlink()
+
+    for path, body in sorted(wanted.items()):
+        if path.exists() and path.read_text(encoding="utf-8") == body:
+            continue
+        changes.append(
+            f"{'update' if path.exists() else 'create'} {path.relative_to(repo_root)}"
+        )
+        if not dry_run:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body, encoding="utf-8")
+    return changes
+
+
+def render_backlog_doc(repo_root: Path, tasks: tuple[TaskDefinition, ...], *, dry_run: bool) -> list[str]:
+    """`tasks/BACKLOG.md` -- the index and the dependency graph."""
+    index = by_id(tasks)
+    rows = ["| Task | P | Area | Depends on | Depth | Title |", "|---|---|---|---|---|---|"]
+    for task in sorted(tasks, key=lambda item: item.number):
+        depends = ", ".join(task.depends_on) if task.depends_on else "-"
+        rows.append(
+            f"| {task.task_id} | {task.priority} | {task.area} | {depends} "
+            f"| {depth(task.task_id, index)} | {task.title} |"
+        )
+
+    startable = [task.task_id for task in tasks if not task.depends_on and task.status == "READY"]
+    body = f"""# Backlog
+
+> Generated by `scripts/orchestration/seed_backlog.py` from
+> `orchestrator/task_queue/backlog.py`. **Do not edit this file by hand** --
+> edit the backlog module and re-run the seeder, or the mirror and the
+> GitHub queue drift apart.
+
+{len(tasks)} tasks. GitHub issues are the source of truth for state and
+claims (ADR-0003); this file and `tasks/*/TASK-*.md` are the mirror.
+
+## Startable right now
+
+No unmet dependencies, so a worker can claim these immediately:
+{", ".join(f"`{task_id}`" for task_id in startable) or "none"}
+
+"Depth" below is how many dependency hops precede a task -- depth 0 is
+claimable now, and the highest depth on a P0 task is the critical path
+to the demo.
+
+## Tasks
+
+{chr(10).join(rows)}
+
+## Dependency graph
+
+{render_graph(tasks)}
+"""
+    path = repo_root / "tasks" / "BACKLOG.md"
+    if path.exists() and path.read_text(encoding="utf-8") == body:
+        return []
+    if not dry_run:
+        path.write_text(body, encoding="utf-8")
+    return [f"{'update' if path.exists() else 'create'} tasks/BACKLOG.md"]
+
+
+#: Some GitHub surfaces append an attribution footer to a body after it
+#: is posted. Comparing the raw stored body against what we rendered
+#: would then differ on every run, so the seeder would rewrite all 50-odd
+#: issues each time -- pure churn, and it buries real changes in the diff.
+_FOOTER = re.compile(r"\n*-{3,}\n_Generated by \[Claude Code\][^\n]*\n*\Z")
+
+
+def normalize_body(body: str) -> str:
+    """Compare bodies by their meaning, not their transport encoding."""
+    text = (body or "").replace("\r\n", "\n")
+    text = _FOOTER.sub("", text)
+    return "\n".join(line.rstrip() for line in text.split("\n")).strip()
+
+
+def matching_issues(task: TaskDefinition, issues: list[dict]) -> list[dict]:
+    """Every issue that claims to be this task, lowest number first.
+
+    Returning all of them rather than the first is deliberate: duplicates
+    are possible (a seeder run against a stale list, or a hand-filed
+    issue) and the caller must be able to say so. Silently picking one
+    and creating another is how a task ends up with two claim threads,
+    which defeats the whole claim protocol.
+    """
+    found: list[dict] = []
+    for issue in issues:
+        match = TASK_ID_IN_TITLE.search(issue.get("title") or "")
+        if match and f"TASK-{int(match.group(1)):03d}" == task.task_id:
+            found.append(issue)
+    if task.existing_issue:
+        pinned = [issue for issue in issues if issue.get("number") == task.existing_issue]
+        others = [issue for issue in found if issue.get("number") != task.existing_issue]
+        return pinned + sorted(others, key=lambda issue: issue["number"])
+    # Lowest number wins: the original owns the task, not a later duplicate.
+    return sorted(found, key=lambda issue: issue["number"])
+
+
+def find_existing(task: TaskDefinition, issues: list[dict]) -> dict | None:
+    """The issue that already represents this task, if there is one."""
+    found = matching_issues(task, issues)
+    return found[0] if found else None
+
+
+def sync_issues(
+    client, tasks: tuple[TaskDefinition, ...], *, dry_run: bool
+) -> list[str]:
+    changes: list[str] = []
+    issues = client.list_issues(state="all")
+    for task in sorted(tasks, key=lambda item: item.number):
+        title = f"{task.task_id}: {task.title}"
+        body = task.render_markdown()
+        candidates = matching_issues(task, issues)
+        # A closed duplicate has already been dealt with; only an open one
+        # can still attract a claim and split the task's history.
+        open_duplicates = [
+            issue
+            for issue in candidates[1:]
+            if (issue.get("state") or "open").lower() == "open"
+        ]
+        if open_duplicates:
+            duplicates = ", ".join(f"#{issue['number']}" for issue in open_duplicates)
+            changes.append(
+                f"WARNING {task.task_id} has more than one issue: {duplicates} duplicate(s) "
+                f"of #{candidates[0]['number']}. Close the duplicates by hand -- the seeder "
+                f"will not, because a duplicate may already carry claims or comments."
+            )
+        existing = candidates[0] if candidates else None
+
+        if existing is None:
+            changes.append(f"create issue for {task.task_id}")
+            if not dry_run:
+                created = client.create_issue(title=title, body=body, labels=task.labels)
+                changes[-1] += f" -> #{created.get('number')}"
+                # Remember it, so a stale list cannot cause a second
+                # create for the same task later in this same run.
+                issues.append(created)
+            continue
+
+        number = existing["number"]
+        current_labels = {
+            label["name"] if isinstance(label, dict) else str(label)
+            for label in existing.get("labels", [])
+        }
+        unchanged = (
+            (existing.get("title") or "") == title
+            and normalize_body(existing.get("body")) == normalize_body(body)
+            and current_labels == set(task.labels)
+        )
+        if unchanged:
+            continue
+        changes.append(f"update issue #{number} for {task.task_id}")
+        if not dry_run:
+            # Labels the seeder does not own (a human's triage note, or a
+            # worker's live status:claimed) are preserved: this syncs the
+            # task's definition, it does not take over its state.
+            owned_prefixes = ("type:", "priority:", "area:", "execution:")
+            keep = {
+                label
+                for label in current_labels
+                if not label.startswith(owned_prefixes) and not label.startswith("status:")
+            }
+            status_label = next(
+                (label for label in current_labels if label.startswith("status:")), ""
+            )
+            # Only set status when the issue has none: once a worker has
+            # moved a task to claimed/review, the seeder must not reset it.
+            labels = sorted(set(task.labels) | keep) if not status_label else sorted(
+                {label for label in task.labels if not label.startswith("status:")}
+                | keep
+                | {status_label}
+            )
+            client.update_issue(number, title=title, body=body, labels=labels)
+    return changes
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dry-run", action="store_true", help="report changes, make none")
+    parser.add_argument("--render-only", action="store_true", help="mirrors only, no GitHub")
+    parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "Apache-61/TrueLock"))
+    args = parser.parse_args(argv)
+
+    problems = validate()
+    if problems:
+        print("The backlog is invalid; nothing was seeded:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 2
+
+    print(f"backlog: {len(BACKLOG)} tasks, graph valid")
+
+    writable = seedable(BACKLOG)
+    changes = render_mirrors(REPO_ROOT, writable, dry_run=args.dry_run)
+    changes += render_backlog_doc(REPO_ROOT, BACKLOG, dry_run=args.dry_run)
+
+    if not args.render_only:
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        if not token:
+            print("GITHUB_TOKEN is not set; use --render-only to skip the queue sync.",
+                  file=sys.stderr)
+            return 2
+        owner, _, repo = args.repo.partition("/")
+        client = GitHubClient(owner, repo, token)
+        try:
+            changes += sync_issues(client, writable, dry_run=args.dry_run)
+        except GitHubError as error:
+            print(f"GitHub error: {error}", file=sys.stderr)
+            return 1
+
+    if not changes:
+        print("Already in sync; nothing to do.")
+        return 0
+    print(f"\n{len(changes)} change(s){' (dry run — none applied)' if args.dry_run else ''}:")
+    for change in changes:
+        print(f"  {change}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
