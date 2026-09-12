@@ -24,3 +24,5 @@ Format: `YYYY-MM-DD HH:MM UTC | TASK-### or n/a | worker | one-line summary`
 
 2026-09-12 18:05 UTC | n/a | orchestrator session (Claude Code) | Fixed three worker defects found by WORKER-01 on a real Windows run: the adapter piped its prompt in cp1252 and could not send a non-ASCII prompt at all; every failed run left uncommitted files in tracked paths, so the next run refused to start and failed for a reason the worker created itself; and any failure marked the task BLOCKED, which is terminal, dropping a P0 task from the queue until relabelled by hand. 590 tests passing.
 
+2026-09-12 18:30 UTC | n/a | orchestrator session (Claude Code) | Worker visibility and interrupt safety, both found by WORKER-01 on a real run: the AI step printed nothing for minutes (buffered CLI output) so a working worker was indistinguishable from a hung one, and Ctrl+C left the CLAIM live while reporting "nothing further was changed", locking the task out of the queue for three hours. Heartbeat every 30s plus an upfront warning; an interrupt now releases the claim and returns the task to READY. 600 tests passing.
+

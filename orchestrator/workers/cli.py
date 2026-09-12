@@ -301,7 +301,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nGitHub error: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:  # pragma: no cover - interactive
-        print("\ninterrupted; nothing further was changed.", file=sys.stderr)
+        # Deliberately not "nothing was changed": by the time a run is
+        # interruptible it has usually claimed a task and may have
+        # created a branch. The runner releases the claim on the way out;
+        # saying otherwise sent an operator looking in the wrong place.
+        print(
+            "\ninterrupted. Any claim this worker held has been released and the "
+            "task returned to the queue; a task branch may remain in this clone "
+            "for inspection. Nothing was merged.",
+            file=sys.stderr,
+        )
         return 130
 
 
