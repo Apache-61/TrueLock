@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/account.schema.json",
+  "title": "Account",
+  "description": "A bank account belonging to an Entity. Distinct from a Transaction (movement of money) and a Payment (settlement of an Invoice) — see docs/contracts/domain.md, 'why three layers not one'.",
+  "type": "object",
+  "required": ["account_no", "entity_id"],
+  "additionalProperties": false,
+  "properties": {
+    "account_no": { "type": "string" },
+    "entity_id": { "type": "string" },
+    "bank": { "type": "string" }
+  }
+}

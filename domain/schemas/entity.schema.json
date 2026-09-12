@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/entity.schema.json",
+  "title": "Entity",
+  "description": "Any legal/natural person that can hold an account or be a party to an invoice: company, provider, or individual. See docs/contracts/domain.md.",
+  "type": "object",
+  "required": ["id", "name", "entity_type"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "rfc": { "type": ["string", "null"] },
+    "name": { "type": "string" },
+    "entity_type": { "type": "string", "enum": ["company", "individual"] }
+  }
+}

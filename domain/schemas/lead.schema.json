@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/lead.schema.json",
+  "title": "Lead",
+  "description": "A candidate for investigation: one or more detector signals judged (deterministically, by risk_score + threshold — see docs/detection/rules.md) to be worth pursuing. See docs/contracts/leads.md.",
+  "type": "object",
+  "required": ["lead_id", "entity_id", "detector_id", "reason", "risk_score", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "lead_id": { "type": "string", "examples": ["L-001"] },
+    "entity_id": { "type": "string" },
+    "detector_id": { "type": "string" },
+    "reason": { "type": "string" },
+    "risk_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "signals": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "detector_signal signal_id values backing this lead."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["OPEN", "FOLLOWED", "DISCARDED"],
+      "description": "OPEN: created, not yet acted on. FOLLOWED: the agent investigated it. DISCARDED: deliberately not pursued (discard_reason required)."
+    },
+    "discard_reason": {
+      "type": ["string", "null"],
+      "description": "Required and citable when status is DISCARDED — never 'the model decided'. See docs/investigation/protocol.md."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "DISCARDED" } } },
+      "then": { "required": ["discard_reason"] }
+    }
+  ]
+}

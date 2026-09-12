@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/invoice.schema.json",
+  "title": "Invoice (CFDI)",
+  "description": "Canonical CFDI 4.0 invoice fields. Not every field below is mandatory in every real CFDI context — validate against the Anexo 20 XSD before treating this as final. See research/sat/README.md.",
+  "type": "object",
+  "required": ["uuid", "provider_rfc", "receiver_rfc", "issue_date", "amount"],
+  "additionalProperties": false,
+  "properties": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "version": { "type": "string", "default": "4.0" },
+    "provider_rfc": { "type": "string", "description": "emisor_rfc" },
+    "receiver_rfc": { "type": "string", "description": "receptor_rfc" },
+    "issue_date": { "type": "string", "format": "date", "description": "fecha" },
+    "amount": { "type": "number", "description": "total" },
+    "subtotal": { "type": "number" },
+    "taxes": { "type": "number", "description": "impuestos" },
+    "currency": { "type": "string", "default": "MXN", "description": "moneda" },
+    "payment_method": { "type": "string", "description": "metodo_pago (PUE/PPD)" },
+    "payment_form": { "type": "string", "description": "forma_pago" },
+    "cfdi_type": { "type": "string", "description": "tipo_comprobante" },
+    "concept": { "type": "string", "description": "free-text summary of conceptos[]; keep the structured conceptos[] once ingestion is implemented" }
+  }
+}

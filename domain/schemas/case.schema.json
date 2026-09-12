@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/case.schema.json",
+  "title": "Case",
+  "description": "The final auditable output: hypothesis, amount, supporting evidence, discarded leads, and limitations. See docs/contracts/case.md and docs/demo/runbook.md.",
+  "type": "object",
+  "required": ["case_id", "status", "hypothesis", "amount_involved", "supporting_evidence", "discarded_leads", "confidence_level"],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": { "type": "string", "examples": ["CASE-001"] },
+    "status": {
+      "type": "string",
+      "enum": ["SUBSTANTIATED", "UNSUBSTANTIATED", "INSUFFICIENT_EVIDENCE"],
+      "description": "Never just 'suspicious' — the system must commit to one of these three, with reasoning."
+    },
+    "hypothesis": { "type": "string" },
+    "providers_involved": { "type": "array", "items": { "type": "string" } },
+    "amount_involved": { "type": "number" },
+    "supporting_evidence": { "type": "array", "items": { "type": "string" }, "description": "evidence_id values." },
+    "discarded_leads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["lead_id", "reason"],
+        "properties": {
+          "lead_id": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "confidence_level": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What evidence is missing / what would change the conclusion — must be answerable at demo time (docs/demo/runbook.md step 12)."
+    },
+    "citations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Regulatory or rule references backing the conclusion, e.g. 'CFF Art. 69-B'."
+    },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "evidence_hash": { "type": ["string", "null"], "description": "SHA-256 of the canonical serialization, for optional Solana notarization (ADR-0004)." }
+  }
+}

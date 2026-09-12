@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/detector_signal.schema.json",
+  "title": "Detector Signal",
+  "description": "The atomic, deterministic output of a single detector run over canonical data. A Lead aggregates one or more Signals (see lead.schema.json). Signals are facts about the data ('this detector fired'), not judgments. See docs/detection/rules.md.",
+  "type": "object",
+  "required": ["signal_id", "detector_id", "entity_id", "claim"],
+  "additionalProperties": false,
+  "properties": {
+    "signal_id": { "type": "string", "examples": ["S-14"] },
+    "detector_id": {
+      "type": "string",
+      "description": "Which detector in docs/detection/rules.md produced this.",
+      "examples": ["SUPPLIER_CONCENTRATION", "DUPLICATE_INVOICE", "69B_CORRELATION"]
+    },
+    "entity_id": { "type": "string", "description": "The entity/provider/invoice this signal is about." },
+    "claim": { "type": "string", "description": "One sentence: what was observed." },
+    "source_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Source record IDs (invoice UUIDs, transaction IDs) the claim is computed from."
+    },
+    "computed_at": { "type": "string", "format": "date-time" }
+  }
+}

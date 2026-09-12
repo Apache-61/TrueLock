@@ -1,0 +1,41 @@
+# Secrets / local config
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Orchestrator runtime state (never a source of truth, see orchestrator/README.md)
+.state/
+orchestrator/state/*.json
+!orchestrator/state/README.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+.next/
+dist/
+build/
+.turbo/
+
+# Data that must not be committed wholesale (raw/real records)
+data/raw/*
+!data/raw/README.md
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log

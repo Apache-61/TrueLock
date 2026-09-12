@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://truelock/schemas/transaction.schema.json",
+  "title": "Transaction",
+  "description": "A bank-account-to-bank-account movement of money. May or may not be linked to a Payment/Invoice (e.g. a fund-forwarding hop between shell accounts has no invoice behind it). This is the edge type the money-flow graph traverses. See docs/contracts/domain.md and research/graph/README.md.",
+  "type": "object",
+  "required": ["id", "from_account", "to_account", "transaction_date", "amount"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "from_account": { "type": "string" },
+    "to_account": { "type": "string" },
+    "transaction_date": { "type": "string", "format": "date" },
+    "amount": { "type": "number" },
+    "related_payment_id": { "type": ["string", "null"] }
+  }
+}
