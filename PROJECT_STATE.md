@@ -6,14 +6,16 @@
 > one-glance pulse check instead, see `STATUS.md`. Update this file as part
 > of any task that changes what's implemented, blocked, or decided.
 
-**Last updated:** 2026-09-12 · **Updated by:** TASK-007 (AI development
-worker MVP)
+**Last updated:** 2026-09-12 · **Updated by:** orchestrator session
+(repository reconciliation, real task queue, continuous worker loop)
 
 ## Current version
 
-`v0.0.1-worker` — still no *product* code (no detector, agent, or UI).
-What is new since bootstrap is the automation layer: an AI development
-worker that can claim a task and carry it to an open pull request.
+`v0.0.2-queue` — still no *product* code (no detector, agent, or UI).
+What is new is that the automation layer is **on `main` and loaded**: the
+bootstrap and the worker are merged, the real 55-task backlog is seeded as
+GitHub issues, and the worker runs as a continuous loop four machines can
+share. The next thing to land should be product code.
 
 ## Current architecture
 
@@ -51,10 +53,29 @@ necessary).
   integration), writes the handoff and `history/ai-activity/` entry, and
   opens a PR. It never touches `main` and never merges (ADR-0005).
   Setup and operation: `docs/orchestration/worker-setup.md`.
+- **Real task queue** (`orchestrator/task_queue/backlog.py`): 55 tasks
+  covering domain, data, detection, graph, agent, tools, API, frontend,
+  testing and infrastructure, defined as data and rendered into both the
+  `tasks/` mirror and the GitHub issues by
+  `scripts/orchestration/seed_backlog.py` (idempotent). `validate()`
+  refuses a graph with an unknown dependency or a cycle, and refuses two
+  concurrently-claimable tasks that declare overlapping `allowed_paths`
+  — the merge conflict no claim protocol can prevent.
+- **Continuous worker loop** (ADR-0006): `worker start --continuous`
+  propagates human merges into task state so dependants unlock
+  (`completion.py`), works through BLOCKED/PROPOSAL outcomes instead of
+  idling the machine, polls with jitter when the queue is dry, and
+  expires a claim whose issue has been silent for three hours so a
+  crashed worker does not strand a task. Bounded by `--max-tasks`,
+  `--max-runtime`, `--max-idle` and a three-failure circuit breaker.
+  Merge authority is unchanged: a human still merges every PR.
+- All 31 repository labels, and `list_issues` pagination — a
+  single-page read silently drops tasks past ~100 issues, which is
+  indistinguishable from an empty queue.
 - Provider routing with `ROUTING_EVENT` logging and a per-call usage
   ledger (`orchestrator/routing/`), plus the handoff schema
   (`orchestrator/policies/task-result.schema.json`).
-- Test suite grown from 28 to 352 passing tests, covering the claim race,
+- Test suite grown from 28 to 446 passing tests, covering the claim race,
   scope enforcement, dependency gating, validation honesty, the merge
   policy, and the whole loop end to end offline — plus an opt-in
   integration test that drives the worker with the **real** Claude Code
@@ -62,13 +83,15 @@ necessary).
 
 ## In progress
 
-`TASK-007` (orchestrator worker adapters) — implemented, PR open, awaiting
-human review. Everything else is queued in `tasks/ready/` and mirrored as
-GitHub issues.
+Nothing is claimed. The queue is seeded and waiting for workers.
 
-The critical-path tasks (`TASK-001` onwards) are unstarted. With the
-worker in place they can now be executed by a workstation running
-`worker start --once` rather than by hand.
+`TASK-007` is merged (PR #9). The repository chain is reconciled —
+`main` → bootstrap → worker/control plane → real task queue — with both
+source branches preserved and no history rewritten.
+
+The critical-path tasks are unstarted. Four are claimable right now, and
+they were chosen to have no overlapping `allowed_paths` so four machines
+can take one each.
 
 ## Blocked
 
@@ -76,21 +99,18 @@ worker in place they can now be executed by a workstation running
   scoring-specific requirements are inferred from the working project
   brief. Reconcile against the real PDF before freezing anything in
   `docs/challenge/` as final — see `docs/challenge/README.md`.
-- **Repository labels still do not exist.** `status:ready`,
-  `priority:P0` and the rest are referenced by the issue templates,
-  `tasks/README.md`, and the worker, but have never been created. The
-  worker handles this — it falls back to reading task state from issue
-  bodies and treats label updates as advisory — but until
-  `scripts/setup/create_labels.sh` is run, task state is only visible by
-  reading issue bodies and claim comments.
-- **GitHub repo-admin actions this session could not perform**: creating
-  labels, setting branch protection rules, and creating a GitHub Project
-  board. The MCP GitHub tool surface available to this session exposes
-  issue/PR/file operations but no label-admin or branch-protection
-  endpoints. Scripts are provided
-  (`scripts/setup/create_labels.sh`, `scripts/setup/branch_protection.sh`)
-  for a human with repo-admin `gh` access to run once. See "Known
-  limitations" in the bootstrap handoff (`history/ai-activity/`).
+- **Branch protection is still not configured.** `main` has no required
+  review or status check, so nothing but convention stops a direct push.
+  `scripts/setup/branch_protection.sh` needs a human with repo-admin `gh`
+  access to run once.
+- **No GitHub Project board.** Not required: `tasks/BACKLOG.md` carries
+  the index and the dependency graph, and the issues carry the state.
+
+Resolved since the last update: **repository labels now exist.** All 31
+were created through the REST API, which accepts them with an ordinary
+repo-scoped token even though this session's MCP tool surface has no
+label-admin endpoint. The worker's label-less fallback is no longer the
+only path, and `worker status` filters on `status:ready` as designed.
 
 ## Known bugs
 
@@ -122,20 +142,37 @@ optional and outside the critical path.
 
 ## Next authorized tasks
 
-See `tasks/ready/` and the mirrored GitHub issues. In dependency order:
+The full backlog is `tasks/BACKLOG.md` (index + dependency graph),
+mirrored in `tasks/ready/` and authoritative as GitHub issues: 55 tasks,
+39 of them P0.
 
-1. `TASK-001` — Canonical domain data ingestion & normalization (Agent B)
-2. `TASK-002` — Database schema migration from `database/migrations/0001_init.sql` + seed fixtures (Agent B)
-3. `TASK-003` — Synthetic scenario generator using AMLSim-style patterns + one hand-built fraud ring, with an answer key (Agent C)
-4. `TASK-004` — Detector framework + first 3 deterministic detectors (duplicate invoice, invoice-payment mismatch, 69-B correlation) (Agent C)
-5. `TASK-005` — Agent tool implementations backing `docs/contracts/agent-tools.md` (Agent D)
-6. `TASK-006` — Frontend shell against the mocked API contract (Agent A)
-7. `TASK-007` — Orchestrator worker adapters **(implemented; PR open,
-   awaiting review)**
+Claimable immediately, one per machine:
 
-Once `TASK-007` merges, tasks 1-6 can each be executed by a workstation
-running `worker start --once` — subject to the same dependency order
-above, which the worker enforces itself. (Claude/Gemini) on top of `scripts/orchestration/task_cli.py`
+| Task | Area | Why it is first |
+|---|---|---|
+| `TASK-001` | data | Canonical entities — nearly everything depends on it |
+| `TASK-006` | frontend | Shell against the mocked API; needs no backend |
+| `TASK-052` | infra | One-command local stack; no code dependencies |
+| `TASK-053` | infra | Environment preflight; no code dependencies |
+
+The critical path to the end-to-end demo (`TASK-049`) is 7 merges:
+
+```
+TASK-001 → TASK-002 → TASK-009 → TASK-005 → TASK-025 → TASK-026 → TASK-049
+```
+
+That chain is the schedule risk. Everything else fans out from it and
+parallelises across machines; nothing shortens it except merging those
+seven promptly. **Review latency on those PRs is the project's critical
+path**, not worker throughput.
+
+Run a machine with:
+
+```bash
+worker status                  # what is eligible, and why the rest is not
+worker start --once --dry-run  # rehearse
+worker start --continuous --max-runtime 480
+```
 
 ## Demo readiness
 

@@ -22,6 +22,18 @@ WORKER_ID_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{2,31}$")
 
 DEFAULT_BASE_BRANCH = "main"
 
+#: How long a claim may go without any further activity on its issue
+#: before another worker may take the task. Generous on purpose: a single
+#: task may legitimately run for `WORKER_AI_TIMEOUT` (default 1h), so this
+#: is three times that. Too low and two machines do the same work; too
+#: high and a crashed worker strands a critical-path task for hours.
+DEFAULT_CLAIM_STALE_MINUTES = 180.0
+
+#: How long a continuous worker waits before re-reading the queue when
+#: nothing is eligible. Dependencies unlock when a human merges a PR, so
+#: the wait is a poll against work that arrives on someone else's clock.
+DEFAULT_POLL_SECONDS = 120.0
+
 
 class ConfigError(RuntimeError):
     """Raised when the worker cannot establish a safe, complete identity."""
@@ -78,6 +90,8 @@ class WorkerConfig:
     model: str = ""
     dry_run: bool = False
     labels_available: bool = True
+    claim_stale_minutes: float = DEFAULT_CLAIM_STALE_MINUTES
+    poll_seconds: float = DEFAULT_POLL_SECONDS
     extra: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -126,6 +140,19 @@ def validate_worker_id(worker_id: str) -> str:
     return worker_id
 
 
+def _positive_float(raw: str, default: float, name: str) -> float:
+    """A misconfigured interval must fail loudly, not silently disable a guard."""
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise ConfigError(f"{name} must be a number, got {raw!r}") from error
+    if value < 0:
+        raise ConfigError(f"{name} must not be negative, got {value}")
+    return value
+
+
 def load_config(
     *,
     repo_root: Path | None = None,
@@ -166,5 +193,12 @@ def load_config(
         model=pick("WORKER_MODEL"),
         dry_run=bool(overrides.get("dry_run", False)),
         labels_available=pick("WORKER_LABELS_AVAILABLE", "1") not in ("0", "false", "no"),
+        claim_stale_minutes=_positive_float(
+            pick("WORKER_CLAIM_STALE_MINUTES"), DEFAULT_CLAIM_STALE_MINUTES,
+            "WORKER_CLAIM_STALE_MINUTES",
+        ),
+        poll_seconds=_positive_float(
+            pick("WORKER_POLL_SECONDS"), DEFAULT_POLL_SECONDS, "WORKER_POLL_SECONDS"
+        ),
         extra=env,
     )

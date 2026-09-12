@@ -13,3 +13,10 @@ Format: `YYYY-MM-DD HH:MM UTC | TASK-### or n/a | worker | one-line summary`
 2026-09-12 09:40 UTC | TASK-007 | Claude Code session (human-directed) | AI development worker MVP: `worker start` takes a task from the GitHub queue to an open PR (claim/verify, dependency + scope gates, bounded context, Claude Code execution, validation, handoff, history, PR). Never touches `main`, never merges. 334 tests passing. See `history/ai-activity/2026-09-12-task-007-ai-development-worker.md` and ADR-0005.
 
 2026-09-12 11:15 UTC | TASK-007 | Claude Code session (human-directed) | Worker verified against the real Claude Code CLI (opt-in test `tests/integration/test_worker_live_claude.py`). Five defects found and fixed: PARTIAL promoted to DONE, `requires_human_review` ignored for PR readiness, `is_error` envelope unchecked, permission denials invisible, and worker scratch committed into the branch. 352 tests passing.
+
+2026-09-12 16:20 UTC | n/a | orchestrator session (Claude Code) | Repository reconciled: bootstrap (PR #8) and the worker/control plane (PR #9) merged to `main`. The worker existed only as a branch with no PR, which is why no workstation could run it. Both source branches preserved, no history rewritten.
+
+2026-09-12 16:45 UTC | n/a | orchestrator session (Claude Code) | Real task queue seeded: 55 tasks with a validated dependency graph (`orchestrator/task_queue/backlog.py` -> `tasks/BACKLOG.md` + GitHub issues #1-#57). 48 issues created, 6 updated in place, TASK-007 closed as merged. All 31 repository labels created, clearing a documented blocker.
+
+2026-09-12 17:30 UTC | n/a | orchestrator session (Claude Code) | Continuous worker loop (ADR-0006): merges propagate into task state so dependants unlock, blockers no longer idle a machine, idle workers poll with jitter, and silent claims expire. Bounded by `--max-idle` and a three-failure circuit breaker. 446 tests passing.
+

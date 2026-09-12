@@ -176,13 +176,68 @@ worker start --continuous --max-tasks 5 --max-runtime 90
 |---|---|
 | `--max-tasks N` | stop after N tasks |
 | `--max-runtime MINUTES` | stop once the run has lasted this long |
+| `--max-idle MINUTES` | stop after this long with nothing eligible |
+| `--max-failure-streak N` | stop after N consecutive failures (default 3) |
 | `--once` | exactly one task (the default; `--continuous` opts out) |
 | `--dry-run` | no claim, no branch, no commit, no push, no PR |
+| `--stop-on-blocker` | in `--continuous`, stop on the first BLOCKED |
 | `--allow-auto-merge` | see §9 — almost always leave this off |
 
-`--continuous` stops when: no eligible READY task remains, a task ends
-BLOCKED, a task needs human authorization, a critical error occurs, or a
-limit is reached. It never runs unbounded without you asking.
+### Running four machines continuously
+
+This is the mode the team runs during a build (ADR-0006). On each
+machine, with its own `WORKER_ID`:
+
+```bash
+worker start --continuous --max-runtime 480
+```
+
+Each machine then loops: propagate merges → claim the next eligible task
+→ execute → open a PR → repeat. Four of them stay out of each other's way
+because the claim protocol (ADR-0003) resolves races and the backlog
+guarantees that two concurrently-claimable tasks never write the same
+paths (`orchestrator/task_queue/backlog.py`).
+
+Three behaviours only apply in `--continuous`:
+
+**It closes tasks whose PR a human merged.** Before each selection the
+worker checks the PR for tasks it has already taken somewhere. Merged →
+it labels the issue `status:done` and closes it, which is what makes
+every task depending on it eligible. Closed unmerged → it releases the
+claim and returns the task to the queue. It still never merges anything
+(ADR-0005); it records a decision a human already made.
+
+**It works through blockers.** A task ending BLOCKED or needing human
+authorization no longer stops the machine — the issue carries the
+explanation and the worker moves to the next task. Use `--once` or
+`--stop-on-blocker` if you want it to stop and wait for you.
+
+**It waits instead of exiting when the queue is dry.** Most tasks here
+unlock only when somebody merges a PR, so an idle worker re-reads the
+queue every `WORKER_POLL_SECONDS` (default 120, jittered so four machines
+do not wake together and race for the same task). Bound it with
+`--max-idle` if you want it to give up.
+
+### If a machine dies mid-task
+
+Its claim would otherwise hold the task forever. Another worker takes
+over once the issue has been silent for `WORKER_CLAIM_STALE_MINUTES`
+(default 180 — three times the longest a single task may run). The
+takeover posts a `RELEASE` on the issue naming both workers.
+
+**If you see that comment and the named worker is still alive, stop it.**
+Two workers on one task is exactly what the claim protocol exists to
+prevent, and the only way this happens is a machine that went silent for
+three hours and then resumed.
+
+### Why a continuous run stopped
+
+It always says. The reasons: no eligible task and `--max-idle` reached; a
+limit (`--max-tasks`, `--max-runtime`); three consecutive failures —
+unrelated tasks failing in a row usually means the machine is
+misconfigured rather than the tasks being bad, so it stops for a human;
+or, with `--once`/`--stop-on-blocker`, a BLOCKED or authorization
+outcome. It never runs unbounded without you asking.
 
 ---
 

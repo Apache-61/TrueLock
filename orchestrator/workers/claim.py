@@ -101,12 +101,80 @@ def parse_claims(comments: list[dict]) -> list[Claim]:
     return sorted(claims, key=lambda claim: claim.comment_id)
 
 
-def find_winning_claim(comments: list[dict]) -> Claim | None:
+def _age_minutes(stamp: str, *, now: datetime | None = None) -> float:
+    """Minutes since an ISO timestamp, or 0.0 if it cannot be read.
+
+    An unparseable timestamp reads as *brand new*, never as ancient: the
+    safe direction is to leave a claim alone, because stealing one that
+    is still live is exactly the duplicate work this module exists to
+    prevent.
+    """
+    moment = now or datetime.now(timezone.utc)
+    try:
+        stamped = datetime.fromisoformat((stamp or "").replace("Z", "+00:00"))
+    except ValueError:
+        return 0.0
+    if stamped.tzinfo is None:
+        stamped = stamped.replace(tzinfo=timezone.utc)
+    return max(0.0, (moment - stamped).total_seconds() / 60.0)
+
+
+def claim_age_minutes(claim: "Claim", *, now: datetime | None = None) -> float:
+    """How long this claim has been held, in minutes.
+
+    Uses the claim's own timestamp, which the claiming worker wrote. Four
+    workstations cannot be trusted to agree on the wall clock, so this is
+    only ever compared against a generous threshold -- never used to
+    order two claims against each other. Ordering stays with GitHub's
+    server-assigned comment IDs.
+    """
+    return _age_minutes(claim.timestamp, now=now)
+
+
+def silent_minutes(comments: list[dict], claim: "Claim", *, now: datetime | None = None) -> float:
+    """How long the issue has been quiet since the claim was posted.
+
+    Any later comment is evidence the holder is alive: a progress
+    update, a human replying, a CI note. Only an issue where *nothing*
+    has happened since the claim counts as abandoned -- which is why
+    this measures the newest activity on the thread rather than the age
+    of the claim itself. A worker that crashed after posting an update
+    still expires; it just takes until the update goes quiet too.
+    """
+    newest = claim_age_minutes(claim, now=now)
+    for comment in comments:
+        if int(comment.get("id", 0)) <= claim.comment_id:
+            continue
+        created = comment.get("created_at")
+        if not created:
+            # A later comment with no timestamp: treat the thread as
+            # active, because we cannot show that it is not.
+            return 0.0
+        newest = min(newest, _age_minutes(created, now=now))
+    return newest
+
+
+def find_winning_claim(
+    comments: list[dict],
+    *,
+    stale_after_minutes: float = 0.0,
+    now: datetime | None = None,
+) -> Claim | None:
     """The claim that currently owns the task, or None if it is free.
 
     Live claims are those posted after the most recent RELEASE and not
     explicitly withdrawn. Among them the lowest comment ID wins, because
     GitHub assigned it first.
+
+    `stale_after_minutes` (0 disables, and is the default) additionally
+    expires a claim whose issue has gone silent for that long. Without
+    it, a worker killed mid-task -- a closed laptop, a lost network, an
+    OOM -- holds its task until a human notices, and on the critical path
+    that strands every task that depends on it.
+
+    The threshold has to be generous: a claim is only stale if nobody
+    could still be working on it. `WorkerConfig.claim_stale_minutes`
+    defaults to several times the longest a single task may run.
     """
     last_release_id = -1
     withdrawn: set[str] = set()
@@ -123,7 +191,53 @@ def find_winning_claim(comments: list[dict]) -> Claim | None:
         for claim in parse_claims(comments)
         if claim.comment_id > last_release_id and claim.claim_id not in withdrawn
     ]
-    return live[0] if live else None
+    if not live:
+        return None
+    winner = live[0]
+    if stale_after_minutes > 0 and silent_minutes(comments, winner, now=now) >= stale_after_minutes:
+        return None
+    return winner
+
+
+def stale_claim(
+    comments: list[dict], *, stale_after_minutes: float, now: datetime | None = None
+) -> Claim | None:
+    """The claim that `find_winning_claim` would expire, for logging.
+
+    A takeover must be visible in the run output and on the issue:
+    silently stealing a task is indistinguishable from the duplicate
+    work the claim protocol exists to prevent.
+    """
+    if stale_after_minutes <= 0:
+        return None
+    held = find_winning_claim(comments)
+    if held is None:
+        return None
+    if find_winning_claim(comments, stale_after_minutes=stale_after_minutes, now=now) is None:
+        return held
+    return None
+
+
+def expire_claim(client, issue_number: int, claim: "Claim", worker_id: str, minutes: float) -> None:
+    """Release an abandoned claim, on the record.
+
+    Deliberately posts a RELEASE -- the protocol's own primitive -- rather
+    than a bespoke marker. Every reader already understands that claims
+    before the newest RELEASE are dead, so the takeover needs no special
+    case in `find_winning_claim`, and a human running `task_cli.py` sees
+    the same thing the worker does.
+    """
+    client.add_comment(
+        issue_number,
+        f"RELEASE\n"
+        f"worker_id: {claim.worker_id}\n"
+        f"timestamp: {utc_now()}\n"
+        f"reason: claim {claim.claim_id} expired — no activity on this issue for "
+        f"{minutes:g} minutes. Released by {worker_id}, which is taking the task over.\n"
+        f"released_by: {worker_id}\n\n"
+        f"If {claim.worker_id} is still working on this, stop it: two workers on one "
+        f"task is exactly what the claim protocol exists to prevent.\n",
+    )
 
 
 @dataclass(frozen=True)
