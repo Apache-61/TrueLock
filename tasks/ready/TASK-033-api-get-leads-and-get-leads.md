@@ -16,6 +16,7 @@ Serve the scored leads produced by the TASK-019 pipeline: a filterable, paginate
 
 ```
 backend/api/routes/leads.py
+tests/**
 ```
 
 ## Forbidden paths

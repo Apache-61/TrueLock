@@ -18,6 +18,7 @@ The request must not block for the whole investigation -- the demo watches it ha
 
 ```
 backend/api/routes/investigations_start.py
+tests/**
 ```
 
 ## Forbidden paths

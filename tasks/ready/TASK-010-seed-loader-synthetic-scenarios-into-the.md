@@ -19,6 +19,7 @@ This is the join between 'we can generate data' and 'the product has data to wor
 ```
 scripts/ingest/load_scenario.py
 database/seeds/**
+tests/**
 ```
 
 ## Forbidden paths

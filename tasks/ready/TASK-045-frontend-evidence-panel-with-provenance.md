@@ -17,6 +17,7 @@ Render the evidence an investigation gathered, each item showing its strength an
 ```
 frontend/app/evidence/**
 frontend/components/evidence/**
+tests/**
 ```
 
 ## Forbidden paths

@@ -23,6 +23,7 @@ detection/rules/duplicate_invoice.py
 detection/rules/invoice_payment_mismatch.py
 detection/rules/efos_correlation.py
 detection/scoring/**
+tests/**
 ```
 
 ## Forbidden paths

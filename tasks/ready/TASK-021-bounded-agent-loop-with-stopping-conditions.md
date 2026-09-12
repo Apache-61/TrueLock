@@ -21,6 +21,7 @@ agent/runtime/loop.py
 agent/runtime/stopping.py
 agent/policies/**
 agent/prompts/investigator.md
+tests/**
 ```
 
 ## Forbidden paths

@@ -16,6 +16,7 @@ Detect concentration risk: a supplier taking an outsized share of a buyer's spen
 
 ```
 detection/rules/supplier_concentration.py
+tests/**
 ```
 
 ## Forbidden paths

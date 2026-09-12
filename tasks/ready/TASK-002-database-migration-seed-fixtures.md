@@ -18,6 +18,7 @@ A structural change to the draft schema touches a shared contract and needs huma
 
 ```
 database/**
+tests/**
 ```
 
 ## Forbidden paths

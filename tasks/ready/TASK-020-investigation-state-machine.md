@@ -19,6 +19,7 @@ The agent loop (TASK-021) drives this; the API (TASK-037) serves it; the timelin
 ```
 agent/runtime/state.py
 agent/runtime/__init__.py
+tests/**
 ```
 
 ## Forbidden paths

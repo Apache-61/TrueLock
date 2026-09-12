@@ -17,6 +17,7 @@ Render the traced money path from the TASK-028 tool results: each hop with amoun
 ```
 frontend/app/money-trail/**
 frontend/components/money-trail/**
+tests/**
 ```
 
 ## Forbidden paths

@@ -19,6 +19,7 @@ This is the product's actual output -- the artefact a human investigator would a
 ```
 agent/case/**
 agent/prompts/case.md
+tests/**
 ```
 
 ## Forbidden paths

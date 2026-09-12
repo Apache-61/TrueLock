@@ -17,6 +17,7 @@ Replace the dashboard's mock with the real `/leads` endpoint: the ranked lead li
 ```
 frontend/app/dashboard/**
 frontend/components/dashboard/**
+tests/**
 ```
 
 ## Forbidden paths

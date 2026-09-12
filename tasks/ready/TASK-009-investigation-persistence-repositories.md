@@ -19,6 +19,7 @@ The agent's investigation state (TASK-020) and the API (TASK-035) both depend on
 ```
 backend/repositories/**
 database/migrations/**
+tests/**
 ```
 
 ## Forbidden paths

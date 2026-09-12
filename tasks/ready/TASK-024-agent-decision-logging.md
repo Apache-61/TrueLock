@@ -18,6 +18,7 @@ This is what makes the investigation auditable rather than magic, and it is what
 
 ```
 agent/runtime/decision_log.py
+tests/**
 ```
 
 ## Forbidden paths

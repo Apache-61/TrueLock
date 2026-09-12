@@ -16,6 +16,7 @@ Expose the TASK-011 EFOS lookup as an agent tool: given an RFC, return the 69-B 
 
 ```
 agent/tools/efos.py
+tests/**
 ```
 
 ## Forbidden paths

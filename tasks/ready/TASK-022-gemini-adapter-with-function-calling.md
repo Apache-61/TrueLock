@@ -19,6 +19,7 @@ Route through `orchestrator/routing/` so spend lands in the usage ledger and a k
 ```
 agent/runtime/gemini.py
 agent/runtime/model.py
+tests/**
 ```
 
 ## Forbidden paths

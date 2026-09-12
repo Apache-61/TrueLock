@@ -17,6 +17,7 @@ Subscribe to the TASK-038 event stream and render the agent's work as it happens
 ```
 frontend/components/live-events/**
 frontend/lib/sse.ts
+tests/**
 ```
 
 ## Forbidden paths

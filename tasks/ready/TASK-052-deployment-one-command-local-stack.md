@@ -20,6 +20,7 @@ Has no code dependencies: it can be built now, in parallel with everything else.
 deployment/**
 docker-compose.yml
 Makefile
+tests/**
 ```
 
 ## Forbidden paths

@@ -23,6 +23,7 @@ agent/tools/schemas.py
 agent/tools/registry.py
 agent/tools/entity_profile.py
 agent/tools/leads.py
+tests/**
 ```
 
 ## Forbidden paths

@@ -18,6 +18,7 @@ Turn tool results into `Evidence`: collect what the investigation found, dedupli
 
 ```
 evidence/**
+tests/**
 ```
 
 ## Forbidden paths

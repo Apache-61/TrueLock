@@ -17,6 +17,7 @@ Render an investigation as an ordered timeline: each step, the tool called, what
 ```
 frontend/app/investigation/**
 frontend/components/timeline/**
+tests/**
 ```
 
 ## Forbidden paths

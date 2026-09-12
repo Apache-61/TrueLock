@@ -5,13 +5,16 @@
 > the source of truth; this one is a quick pointer to it plus whatever is
 > happening *right now*.
 
-**Phase:** Repository reconciled, queue loaded. Still no product code;
-the coordination layer is now fully live and four machines can run
-unattended against a real backlog.
+**Phase:** First product code landed. The canonical domain layer exists;
+the coordination layer is live and four machines can run unattended.
 
 **Demo readiness:** 🔴 Not demoable — no detector/agent/UI exists yet.
 
-**What just happened:** The bootstrap and the worker are merged to `main`
+**What just happened:** TASK-001 is done — the canonical domain layer
+(entities, ingestion, repositories), 577 tests passing. Merging it unlocks
+TASK-002, -003, -008 and -012, so three more machines have work.
+
+Before that: The bootstrap and the worker are merged to `main`
 (PRs #8, #9) — the worker existed only on a branch with no PR, which is
 why no workstation could run it. The real backlog is seeded: **55 tasks**
 with a validated dependency graph, as GitHub issues and `tasks/BACKLOG.md`.
@@ -24,7 +27,6 @@ machine, with no overlapping scope:
 
 | Machine | Task | What |
 |---|---|---|
-| 1 | `TASK-001` | Canonical entities & ingestion |
 | 2 | `TASK-006` | Frontend shell against the mock |
 | 3 | `TASK-052` | One-command local stack |
 | 4 | `TASK-053` | Environment preflight |

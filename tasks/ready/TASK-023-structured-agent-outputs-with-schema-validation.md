@@ -18,6 +18,7 @@ A model returning malformed JSON is an expected condition, not an exception -- h
 
 ```
 agent/runtime/structured.py
+tests/**
 ```
 
 ## Forbidden paths

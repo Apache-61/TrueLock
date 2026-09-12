@@ -18,6 +18,7 @@ Just-under-threshold is the highest-signal of the three in procurement fraud -- 
 
 ```
 detection/rules/unusual_amount.py
+tests/**
 ```
 
 ## Forbidden paths

@@ -17,6 +17,7 @@ Render the generated case: narrative with inline citations, findings, confidence
 ```
 frontend/app/case/**
 frontend/components/case/**
+tests/**
 ```
 
 ## Forbidden paths

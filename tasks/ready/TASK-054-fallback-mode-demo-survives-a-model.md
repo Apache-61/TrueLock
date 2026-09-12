@@ -19,6 +19,7 @@ The deterministic half of the product -- detection, leads, graph, money trail --
 ```
 agent/runtime/fallback.py
 data/recorded/**
+tests/**
 ```
 
 ## Forbidden paths

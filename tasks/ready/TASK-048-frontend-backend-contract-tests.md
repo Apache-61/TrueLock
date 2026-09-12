@@ -18,6 +18,7 @@ Without this, the mock and the real API drift and the integration fails at the w
 
 ```
 tests/contract/test_api_contract.py
+tests/**
 ```
 
 ## Forbidden paths

@@ -19,6 +19,7 @@ Emit detector signals through the TASK-004 registry so leads are scored the same
 ```
 detection/graph/fan_patterns.py
 detection/rules/fan_patterns.py
+tests/**
 ```
 
 ## Forbidden paths

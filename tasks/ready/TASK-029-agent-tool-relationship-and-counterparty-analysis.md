@@ -16,6 +16,7 @@ Implement the relationship tools: who does this entity transact with, which coun
 
 ```
 agent/tools/relationships.py
+tests/**
 ```
 
 ## Forbidden paths

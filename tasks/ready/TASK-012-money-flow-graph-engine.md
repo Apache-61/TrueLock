@@ -20,6 +20,7 @@ This is shared infrastructure. Keep the construction separate from any single an
 detection/graph/__init__.py
 detection/graph/builder.py
 detection/graph/model.py
+tests/**
 ```
 
 ## Forbidden paths

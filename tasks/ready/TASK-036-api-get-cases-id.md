@@ -16,6 +16,7 @@ Serve the generated case file: narrative, findings, evidence with provenance, mo
 
 ```
 backend/api/routes/cases.py
+tests/**
 ```
 
 ## Forbidden paths

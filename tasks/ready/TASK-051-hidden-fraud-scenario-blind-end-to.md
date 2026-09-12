@@ -19,6 +19,7 @@ Every other test risks being tuned to its fixture. This is the only one that ans
 ```
 tests/scenarios/test_blind.py
 data/answer_keys/blind/**
+tests/**
 ```
 
 ## Forbidden paths

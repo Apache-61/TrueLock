@@ -18,6 +18,7 @@ Detectors get tuned under time pressure. This is what stops a tweak that fixes o
 
 ```
 tests/scenarios/test_regression.py
+tests/**
 ```
 
 ## Forbidden paths

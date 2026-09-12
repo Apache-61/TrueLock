@@ -19,6 +19,7 @@ This is the definition of 'the product works'. It is also the demo rehearsal -- 
 ```
 tests/e2e/**
 scripts/demo/run_demo.py
+tests/**
 ```
 
 ## Forbidden paths

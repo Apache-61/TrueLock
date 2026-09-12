@@ -17,6 +17,7 @@ Render the entity/account graph around an investigation with Cytoscape.js (the d
 ```
 frontend/app/graph/**
 frontend/components/graph/**
+tests/**
 ```
 
 ## Forbidden paths
