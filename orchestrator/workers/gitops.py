@@ -203,6 +203,14 @@ class Git:
             self.run("checkout", "-b", name, start_point, mutating=True)
         return name
 
+    def checkout(self, branch: str) -> None:
+        """Switch to an existing branch.
+
+        Used to leave the checkout on the base branch after a failed run,
+        so the next task does not start from a half-finished task branch.
+        """
+        self.run("checkout", branch, mutating=True)
+
     def assert_not_protected(self) -> None:
         """Hard stop if the worker is about to write to a protected branch."""
         if self.dry_run:

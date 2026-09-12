@@ -52,6 +52,31 @@ matter to someone re-reading this in a week, it doesn't go here.
   (`WORKER_LIVE_AI_TEST=1`; skipped in CI). See `docs/testing.md`.
 
 ### Fixed
+- **The worker wedged itself after any failed run.** The failure path
+  wrote `history/ai-activity/<run>.md` and appended to
+  `history/timeline.md` — both tracked — and committed neither. The next
+  run refused to start ("working tree is dirty"), failed, and wrote
+  another pair. One transient failure permanently stopped the machine,
+  and in `--continuous` it tripped the three-failure circuit breaker with
+  two failures the worker had caused itself. Failure handoffs now go to
+  `.state/` (gitignored and excluded from the clean check), no timeline
+  line is written for a run that produced no branch, and the checkout
+  returns to the base branch.
+- **The Claude Code adapter could not send its prompt on Windows.**
+  `subprocess.run(text=True)` uses the platform's preferred encoding —
+  cp1252 on a default Windows install — and the prompt carries this
+  repository's own documents, arrows and all. `stdin.write` raised
+  `UnicodeEncodeError` on subprocess's writer thread, so `run` did not
+  raise: the CLI simply received no input and exited 1 with "Input must
+  be provided either through stdin or as a prompt argument", which reads
+  like a CLI bug rather than a local encoding problem. The adapter now
+  pipes UTF-8 explicitly.
+- **A flaky run removed a task from the queue.** Any failure marked the
+  issue `status:blocked`, which `dependencies.check_eligibility` treats
+  as terminal — so an adapter or network failure dropped a critical-path
+  task until a human relabelled it by hand. Infrastructure failures
+  (adapter, branch creation, push) now return the task to `status:ready`;
+  task-level failures still block for a human.
 - The worker no longer overstates what the AI reported: a self-declared
   `PARTIAL`, or a run the AI flagged for human review, opens a clearly
   labelled draft PR instead of a merge-ready one.
