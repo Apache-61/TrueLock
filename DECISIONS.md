@@ -15,6 +15,7 @@ Link the ADR from the task/PR that implements it.
 | ADR-0002 | Determinism/AI split for forensic reasoning | Rules+graph deterministic; Gemini investigates/narrates only | Accepted | [history/decisions/ADR-0002-determinism-ai-split.md](history/decisions/ADR-0002-determinism-ai-split.md) |
 | ADR-0003 | Task coordination source of truth for 4 parallel workers | GitHub Issues + claim/verify-claim protocol | Accepted | [history/decisions/ADR-0003-task-coordination.md](history/decisions/ADR-0003-task-coordination.md) |
 | ADR-0004 | Solana / ElevenLabs / Snowflake / MongoDB scope | Optional, outside critical path, bounded use only | Accepted | [history/decisions/ADR-0004-sponsor-tech-scope.md](history/decisions/ADR-0004-sponsor-tech-scope.md) |
+| ADR-0005 | AI development worker: execution model and merge authority | Autonomous up to the PR, never past it; auto-merge triple-gated and off by default | Accepted | [history/decisions/ADR-0005-ai-development-worker.md](history/decisions/ADR-0005-ai-development-worker.md) |
 
 Open (not yet decided) items are tracked in `PROJECT_STATE.md` → "Open
 decisions", not here — this index is for decisions already made.

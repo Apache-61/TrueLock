@@ -1,17 +1,24 @@
 # orchestrator/state/
 
-**Purpose:** documents the shape of local runtime state, if/when a worker
-adapter needs to persist something between runs (e.g. `.state/usage.json`
-accumulating spend before it's rolled up).
+**Purpose:** documents the shape of local runtime state written by a
+worker adapter between runs.
 
 **Never a source of truth** — GitHub Issues own task state
 (`history/decisions/ADR-0003-task-coordination.md`); this is scratch
 space. Gitignored except this README (`.gitignore`).
 
-**What would go here:** `.state/tasks.json`, `.state/workers.json`,
-`.state/usage.json`, `.state/locks.json`, `.state/events.jsonl` — per the
-operating pack's shared-state model. None of these are implemented yet;
-build them only when a worker adapter (`orchestrator/workers/`) actually
-needs local caching, not preemptively.
+**What the worker writes today**, under `.state/` at the repository root:
+
+| File | Contents |
+|---|---|
+| `.state/usage.jsonl` | one usage-ledger row per AI call, append-only |
+| `.state/task-result-<run-id>.json` | the handoff for one task execution |
+
+Append-only JSON Lines for the ledger is deliberate: it survives a
+crashed run, which a rewritten JSON document does not.
+
+The durable copy of a handoff lives in `history/ai-activity/` and in the
+PR body; these files are the local working copy. Deleting `.state/` at
+any time is safe.
 
 **Never store secrets here.**

@@ -40,3 +40,23 @@ pytest
 ```
 
 CI runs the same command on every PR — see `.github/workflows/ci.yml`.
+
+### Opt-in tests that cost money
+
+`tests/integration/test_worker_live_claude.py` drives the AI development
+worker against the **real** Claude Code CLI. It is skipped unless you ask
+for it, because it calls a paid API and takes a minute or two:
+
+```bash
+WORKER_LIVE_AI_TEST=1 pytest -q tests/integration/test_worker_live_claude.py
+```
+
+It builds a throwaway git repository, gives the AI a small real task, and
+checks what came back — including running the AI's own code rather than
+trusting the status it reported. The GitHub side stays in-memory, so it
+never touches the real repository.
+
+Everything else about the worker is covered offline in `tests/unit/`. Run
+the live test after changing the adapter, and when the Claude Code CLI
+has been upgraded: what only it can prove is that the CLI is still
+invoked correctly and that its JSON envelope still parses.
