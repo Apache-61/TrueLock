@@ -66,21 +66,42 @@ def _has_marker(comments: list[dict], marker: str) -> bool:
 
 
 def find_pull_request(client, task: TaskSpec) -> dict | None:
-    """The PR opened for this task's branch, merged or not.
+    """The PR that carries this task's work, merged or not.
 
-    Matched by head branch rather than by parsing the worker's comment:
-    the branch name is derived from the task id, so it still matches a PR
-    a human opened or renamed.
+    Two ways in, tried in order:
+
+    1. **By head branch.** The worker derives the branch name from the
+       task id, so this matches whenever the worker opened the PR.
+    2. **By task id in the title.** The branch is only a convention, and
+       it breaks in exactly the cases that matter -- a human opening the
+       PR by hand, a session working on its own assigned branch, a branch
+       renamed after the fact. Falling back to the title means the task
+       still gets closed and its dependants still unlock; without it the
+       work merges and the queue silently stays blocked behind it, which
+       is the failure this whole module exists to prevent.
     """
+    candidates: list[dict] = []
     try:
-        pulls = client.list_pull_requests(state="all", head=task.branch_name)
+        candidates = list(client.list_pull_requests(state="all", head=task.branch_name) or [])
     except Exception:  # noqa: BLE001 - a listing failure must not stop the loop
+        candidates = []
+
+    if not candidates:
+        try:
+            every = client.list_pull_requests(state="all") or []
+        except Exception:  # noqa: BLE001
+            return None
+        candidates = [
+            pull
+            for pull in every
+            if task.task_id in (pull.get("title") or "")
+        ]
+
+    if not candidates:
         return None
-    if not pulls:
-        return None
-    # Newest first: a re-opened task may have more than one PR on the
-    # same branch, and the latest is the one that decided its fate.
-    return sorted(pulls, key=lambda pull: pull.get("number", 0))[-1]
+    # Highest number last: a re-opened task may have more than one PR,
+    # and the latest is the one that decided its fate.
+    return sorted(candidates, key=lambda pull: pull.get("number", 0))[-1]
 
 
 def _is_merged(pull: dict) -> bool:

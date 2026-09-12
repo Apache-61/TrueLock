@@ -245,6 +245,35 @@ class TestMergedWorkUnlocksDependants:
         assert client.issues[1]["state"] == "open", "an unmerged task is not done"
         assert find_winning_claim(client.list_comments(1)) is None, "the claim must be released"
 
+    def test_a_pull_request_is_found_by_task_id_when_the_branch_differs(self, client):
+        """A human-opened or differently-branched PR must still close the task.
+
+        Otherwise the work merges and the queue stays silently blocked
+        behind it -- the exact failure this module exists to prevent.
+        """
+        client.issues[1]["labels"] = [{"name": "status:review"}]
+        client.pulls.append({
+            "number": 60, "head": "claude/some-other-branch",
+            "state": "closed", "merged": True, "html_url": "http://pr/60",
+            "title": "TASK-001: canonical domain layer",
+        })
+        outcome = completion.reconcile_task(client, parse_issue(client.get_issue(1)),
+                                            worker_id="W", log=lambda *_: None)
+        assert outcome == "completed"
+        assert client.issues[1]["state"] == "closed"
+
+    def test_an_unrelated_pull_request_does_not_close_a_task(self, client):
+        client.issues[1]["labels"] = [{"name": "status:review"}]
+        client.pulls.append({
+            "number": 61, "head": "feature/TASK-099-unrelated",
+            "state": "closed", "merged": True, "html_url": "http://pr/61",
+            "title": "TASK-099: something else entirely",
+        })
+        outcome = completion.reconcile_task(client, parse_issue(client.get_issue(1)),
+                                            worker_id="W", log=lambda *_: None)
+        assert outcome == ""
+        assert client.issues[1]["state"] == "open"
+
     def test_an_open_pull_request_is_left_alone(self, client):
         client.issues[1]["labels"] = [{"name": "status:review"}]
         client.pulls.append({
