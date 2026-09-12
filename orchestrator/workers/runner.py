@@ -20,10 +20,13 @@ task's declared paths.
 from __future__ import annotations
 
 import os
+import random
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import claim as claim_protocol
+from . import completion
 from . import merge_policy
 from .adapters.base import AdapterError, AIResult, SuiteResult
 from .config import WorkerConfig
@@ -106,6 +109,10 @@ class RunSummary:
 class WorkerRunner:
     """Executes tasks until a limit, a blocker, or an empty queue stops it."""
 
+    #: Fraction by which each idle wait is randomised, +/-. Keeps four
+    #: machines from waking in lockstep and racing for the same task.
+    POLL_JITTER = 0.35
+
     def __init__(
         self,
         config: WorkerConfig,
@@ -119,6 +126,7 @@ class WorkerRunner:
         ledger: UsageLedger | None = None,
         allow_auto_merge: bool = False,
         log=print,
+        sleep=time.sleep,
     ) -> None:
         self.config = config
         self.client = client
@@ -135,6 +143,8 @@ class WorkerRunner:
             config.repo_root / ".state" / "usage.jsonl", dry_run=config.dry_run
         )
         self.allow_auto_merge = allow_auto_merge
+        # Injectable so the idle path is testable without real waiting.
+        self.sleep = sleep
         self.summary = RunSummary(worker_id=config.worker_id)
         self._register_provider()
 
@@ -196,14 +206,48 @@ class WorkerRunner:
                 task_index=task_index,
                 comments=comments,
                 worker_id=self.config.worker_id,
+                claim_stale_minutes=self.config.claim_stale_minutes,
             )
             if eligibility.eligible:
+                abandoned = claim_protocol.stale_claim(
+                    comments, stale_after_minutes=self.config.claim_stale_minutes
+                )
+                if abandoned is not None:
+                    self.log(
+                        f"{task.task_id}: taking over a claim held by "
+                        f"{abandoned.worker_id}, silent for "
+                        f"{self.config.claim_stale_minutes:g}m"
+                    )
+                    claim_protocol.expire_claim(
+                        self.client,
+                        task.issue_number,
+                        abandoned,
+                        self.config.worker_id,
+                        self.config.claim_stale_minutes,
+                    )
                 return task, ""
             reasons.append(f"  #{task.issue_number} {eligibility.reason}")
         return None, "No eligible READY task.\n" + "\n".join(reasons)
 
     # -- the run ------------------------------------------------------
     def run(self) -> RunSummary:
+        """Claim, execute, verify, unlock, repeat.
+
+        In `--once` mode this is one pass and the original stop rules
+        apply. In `--continuous` mode it is the production loop four
+        machines run unattended, and the differences are deliberate:
+
+        * a merged PR is propagated before each selection, so tasks that
+          were waiting on it become claimable (`completion.py`);
+        * BLOCKED and PROPOSAL no longer end the run. Both are correct,
+          expected outcomes that leave an explanation on the issue;
+          idling a machine for one of them costs a quarter of the team's
+          throughput for something a human will read later anyway;
+        * consecutive failures still end it, because a machine failing
+          unrelated tasks in a row is usually itself the fault;
+        * an empty queue waits and re-reads instead of exiting, because
+          on this graph most work unlocks when someone else merges.
+        """
         skip: set[int] = set()
         while True:
             stop = self.limits.stop_reason()
@@ -211,25 +255,85 @@ class WorkerRunner:
                 self.summary.stop_reason = stop
                 break
 
+            # -- steps 14-17: verify, complete, unlock dependants ----
+            self.reconcile()
+
             task, reason = self.select_task(skip)
             if task is None:
-                self.summary.stop_reason = reason
-                break
+                if not self.limits.poll_when_idle:
+                    self.summary.stop_reason = reason
+                    break
+                self.limits.record_idle()
+                stop = self.limits.stop_reason()
+                if stop:
+                    self.summary.stop_reason = stop
+                    break
+                self.wait_for_work(reason)
+                continue
 
+            self.limits.record_progress()
             self.log(f"\n=== {task.task_id} (issue #{task.issue_number}) — {task.title}")
             attempt = self.attempt_task(task)
             self.summary.attempts.append(attempt)
             skip.add(task.issue_number)
             self.limits.record_task()
+            self.limits.record_outcome(failed=attempt.outcome == Outcome.FAILED)
 
-            if attempt.outcome in (Outcome.FAILED, Outcome.BLOCKED, Outcome.PROPOSAL):
+            if self.limits.stop_on_blocker and attempt.outcome in (
+                Outcome.FAILED,
+                Outcome.BLOCKED,
+                Outcome.PROPOSAL,
+            ):
                 # A blocker, a failure, or a task awaiting authorization
                 # all mean a human should look before more work lands.
                 self.summary.stop_reason = (
                     f"{task.task_id} ended as {attempt.outcome}: {attempt.reason}"
                 )
                 break
+            if attempt.outcome in (Outcome.BLOCKED, Outcome.PROPOSAL):
+                self.log(
+                    f"{task.task_id} ended as {attempt.outcome}; the issue explains why. "
+                    "Moving to the next eligible task."
+                )
         return self.summary
+
+    def reconcile(self) -> None:
+        """Propagate merges into task state, so dependants unlock.
+
+        Best-effort: a reconciliation failure must never stop a worker
+        that could still be doing useful work. The consequence of
+        skipping a pass is a delayed unlock, not a wrong one.
+        """
+        if self.config.dry_run:
+            return
+        try:
+            tasks, _ = self.fetch_candidates()
+            result = completion.reconcile(
+                self.client, tasks, worker_id=self.config.worker_id, log=self.log
+            )
+        except Exception as error:  # noqa: BLE001 - never fatal to the loop
+            self.log(f"note: reconciliation pass failed ({error}); continuing")
+            return
+        if result.changed:
+            self.log(result.render())
+
+    def wait_for_work(self, reason: str) -> None:
+        """Sleep before re-reading the queue, with jitter.
+
+        The jitter is not cosmetic. Four machines started from the same
+        runbook poll on the same cadence, wake together, and race for the
+        same highest-priority task -- three of them lose the claim and
+        have burned a cycle. Spreading the wakeups means they mostly pick
+        up different tasks instead.
+        """
+        base = max(5.0, float(self.config.poll_seconds))
+        delay = base * (1.0 + random.uniform(-self.POLL_JITTER, self.POLL_JITTER))
+        first_line = (reason or "").strip().splitlines()[0] if reason else "no eligible task"
+        self.log(
+            f"idle: {first_line} — waiting {delay:.0f}s for work to unlock "
+            f"(idle {self.limits.idle_minutes:.1f}m)"
+        )
+        self.sleep(delay)
 
     def attempt_task(self, task: TaskSpec) -> TaskAttempt:
         run_id = new_run_id()

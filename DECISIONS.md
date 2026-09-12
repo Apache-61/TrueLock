@@ -16,6 +16,7 @@ Link the ADR from the task/PR that implements it.
 | ADR-0003 | Task coordination source of truth for 4 parallel workers | GitHub Issues + claim/verify-claim protocol | Accepted | [history/decisions/ADR-0003-task-coordination.md](history/decisions/ADR-0003-task-coordination.md) |
 | ADR-0004 | Solana / ElevenLabs / Snowflake / MongoDB scope | Optional, outside critical path, bounded use only | Accepted | [history/decisions/ADR-0004-sponsor-tech-scope.md](history/decisions/ADR-0004-sponsor-tech-scope.md) |
 | ADR-0005 | AI development worker: execution model and merge authority | Autonomous up to the PR, never past it; auto-merge triple-gated and off by default | Accepted | [history/decisions/ADR-0005-ai-development-worker.md](history/decisions/ADR-0005-ai-development-worker.md) |
+| ADR-0006 | Continuous worker operation across four machines | Propagate merges to unlock dependants, work through blockers, poll when idle, expire silent claims; merge authority unchanged | Accepted | [history/decisions/ADR-0006-continuous-worker-operation.md](history/decisions/ADR-0006-continuous-worker-operation.md) |
 
 Open (not yet decided) items are tracked in `PROJECT_STATE.md` → "Open
 decisions", not here — this index is for decisions already made.

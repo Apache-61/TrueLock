@@ -43,6 +43,18 @@ def build_parser() -> argparse.ArgumentParser:
                        help="stop after N tasks (0 = no limit; --once implies 1)")
     start.add_argument("--max-runtime", type=float, default=0.0, metavar="MINUTES",
                        help="stop once this many minutes have elapsed")
+    start.add_argument("--max-idle", type=float, default=0.0, metavar="MINUTES",
+                       help="in --continuous, stop after this long with no eligible "
+                            "task (default: wait indefinitely)")
+    start.add_argument("--poll-seconds", type=float, default=None, metavar="SECONDS",
+                       help="how long to wait before re-reading the queue when idle "
+                            "(default: WORKER_POLL_SECONDS, 120)")
+    start.add_argument("--max-failure-streak", type=int, default=None, metavar="N",
+                       help="stop after N consecutive failed tasks (default 3); "
+                            "0 disables the circuit breaker")
+    start.add_argument("--stop-on-blocker", action="store_true",
+                       help="in --continuous, stop on the first BLOCKED or PROPOSAL "
+                            "outcome instead of moving to the next task")
     start.add_argument("--dry-run", action="store_true",
                        help="rehearse the full loop: no claim, no commit, no push, no PR")
     start.add_argument("--adapter", choices=("claude_code", "mock"), default=None,
@@ -67,12 +79,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _make_config(args, *, dry_run: bool = False) -> WorkerConfig:
     overrides: dict[str, object] = {"dry_run": dry_run}
-    for key in ("worker_id", "base_branch", "adapter", "model"):
+    for key in ("worker_id", "base_branch", "adapter", "model", "poll_seconds"):
         value = getattr(args, key, None)
         if value:
             overrides[{"base_branch": "worker_base_branch",
                        "adapter": "worker_adapter",
-                       "model": "worker_model"}.get(key, key)] = value
+                       "model": "worker_model",
+                       "poll_seconds": "worker_poll_seconds"}.get(key, key)] = value
     return load_config(repo_root=find_repo_root(), overrides=overrides)
 
 
@@ -127,11 +140,25 @@ def cmd_start(args) -> int:
         max_runtime_minutes=args.max_runtime,
         once=once,
         dry_run=args.dry_run,
+        max_idle_minutes=args.max_idle,
+        # Polling and working through blockers are what make a run
+        # "continuous"; a --once run keeps the original stop rules.
+        poll_when_idle=bool(args.continuous) and not args.dry_run,
+        stop_on_blocker=once or args.stop_on_blocker,
+        **(
+            {"max_failure_streak": args.max_failure_streak}
+            if args.max_failure_streak is not None
+            else {}
+        ),
     )
 
     print(f"{BANNER}\n  worker: {config.worker_id}\n  repo:   {config.slug}")
     print(f"  mode:   {'once' if once else 'continuous'}"
           f"{'  [DRY RUN — nothing will be changed]' if config.dry_run else ''}")
+    if not once:
+        idle = f"{args.max_idle:g}m" if args.max_idle else "indefinitely"
+        print(f"  idle:   poll every {config.poll_seconds:g}s, wait {idle}")
+        print(f"  claims: taken over after {config.claim_stale_minutes:g}m of silence")
     print(f"  adapter: {getattr(adapter, 'name', '?')}")
 
     runner = WorkerRunner(
@@ -191,6 +218,7 @@ def cmd_status(args) -> int:
             task_index=index,
             comments=client.list_comments(task.issue_number),
             worker_id=config.worker_id,
+            claim_stale_minutes=config.claim_stale_minutes,
         )
         verdict = "yes" if eligibility.eligible else "no "
         detail = "" if eligibility.eligible else f"— {eligibility.reason}"

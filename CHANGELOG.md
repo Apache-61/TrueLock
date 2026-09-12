@@ -24,6 +24,21 @@ matter to someone re-reading this in a week, it doesn't go here.
   See `docs/orchestration/worker-setup.md`.
 - Provider routing with `ROUTING_EVENT` logging and a per-call usage
   ledger (`orchestrator/routing/`).
+- **Real task queue**: 55 tasks covering domain, data, detection, graph,
+  agent, tools, API, frontend, testing and infrastructure, defined in
+  `orchestrator/task_queue/backlog.py` and rendered into both the
+  `tasks/` mirror and GitHub issues by
+  `scripts/orchestration/seed_backlog.py` (idempotent). The graph is
+  validated: no unknown dependency, no cycle, and no two
+  concurrently-claimable tasks writing the same paths. Index and
+  dependency graph in `tasks/BACKLOG.md`.
+- **Continuous worker mode** (`worker start --continuous`, ADR-0006):
+  propagates human merges into task state so dependent tasks unlock,
+  continues past BLOCKED/PROPOSAL outcomes, polls with jitter when the
+  queue is dry, and expires a claim whose issue has gone silent so a
+  crashed machine does not strand a task. New bounds `--max-idle`,
+  `--max-failure-streak`, `--stop-on-blocker`. Merge authority is
+  unchanged — a human still merges every PR (ADR-0005).
 - Handoff contract `orchestrator/policies/task-result.schema.json`,
   validated against real worker output in `tests/contract/`.
 - Opt-in live test driving the worker with the real Claude Code CLI

@@ -75,6 +75,7 @@ def check_eligibility(
     task_index: dict[str, dict],
     comments: list[dict] | None = None,
     worker_id: str = "",
+    claim_stale_minutes: float = 0.0,
 ) -> Eligibility:
     """Apply every gate, in the order that fails cheapest first."""
     if task.issue_state == "closed":
@@ -115,7 +116,7 @@ def check_eligibility(
         )
 
     if comments is not None:
-        winner = find_winning_claim(comments)
+        winner = find_winning_claim(comments, stale_after_minutes=claim_stale_minutes)
         if winner is not None and winner.worker_id != worker_id:
             return Eligibility(
                 False,
