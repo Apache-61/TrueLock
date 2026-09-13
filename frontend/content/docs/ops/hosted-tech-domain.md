@@ -24,15 +24,18 @@ Blueprint: [`render.yaml`](../../render.yaml) at repo root.
 
 ## 3. Frontend (Vercel)
 
-Config: [`vercel.json`](../../vercel.json).
-
-1. Import the repo; set **Root Directory** to `frontend` *or* use the
-   install/build commands in `vercel.json` from the monorepo root.
-2. Environment:
+1. Import the repo from GitHub.
+2. **Root Directory** (Project → Settings → General): set to **`frontend`**.
+   Do not leave this as `.` — `next` lives only in `frontend/package.json`.
+3. Framework preset: **Next.js** (auto once Root Directory is `frontend`).
+4. Environment (Production):
    - `NEXT_PUBLIC_API_URL=https://api.truelockfa.tech`
    - `NEXT_PUBLIC_SITE_URL=https://truelockfa.tech`
-3. Build runs `npm run sync-docs` via `prebuild` so markdown is embedded.
-4. Attach the `.tech` domain in Vercel → Domains (apex + `www`).
+5. Build runs `prebuild` → `sync-docs` (reads `../docs` from the full clone).
+6. Attach the `.tech` domain in Vercel → Domains (apex + `www`).
+
+Config files: [`frontend/vercel.json`](../../frontend/vercel.json) (used when Root Directory is `frontend`).
+The repo-root [`vercel.json`](../../vercel.json) is a fallback only; prefer Root Directory = `frontend`.
 
 ## 4. DNS records
 

@@ -70,7 +70,8 @@ Production hostname used in configs: **`truelockfa.tech`**
 1. Own/buy the `.tech` domain at your registrar.
 2. Create Render Postgres + web service from [`render.yaml`](../render.yaml); set
    `GEMINI_*`, `FRONTEND_ORIGIN=https://truelockfa.tech`, run migrate/seed on release.
-3. Deploy frontend on Vercel from repo root / `frontend` using [`vercel.json`](../vercel.json);
+3. Deploy frontend on Vercel with **Root Directory = `frontend`**
+   ([`frontend/vercel.json`](../frontend/vercel.json));
    set `NEXT_PUBLIC_API_URL=https://api.truelockfa.tech` and
    `NEXT_PUBLIC_SITE_URL=https://truelockfa.tech`.
 4. DNS at the registrar:
