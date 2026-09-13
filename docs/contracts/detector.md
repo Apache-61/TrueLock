@@ -40,6 +40,6 @@ synthetic negative case (data that looks similar but should NOT fire), and
 a scenario fixture under `tests/scenarios/` with an answer key
 (`data/answer_keys/`). See `docs/testing.md`.
 
-## Who owns this contract
+## Ownership
 
-Agent C (Detection/Graph).
+Detection Pipeline Layer (`backend/src/truelock/detection/detectors.py`).

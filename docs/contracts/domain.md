@@ -46,11 +46,10 @@ See `research/graph/README.md` and `detection/graph/README.md`.
 
 ## EFOS status
 
-See `domain/enums/efos-status.md`. Modeled as fiscal status, never
+See `backend/src/truelock/domain/efos-status.md`. Modeled as fiscal status, never
 auto-equated with fraud.
 
-## Who owns this contract
+## Ownership
 
-Agent B (Data/Backend) drafts changes; any change requires human
-authorization per `CONTRIBUTING.md` §5, because `detection/`, `agent/`,
-`backend/`, and `frontend/` all consume it directly.
+Shared Domain Model Layer (`backend/src/truelock/domain/models/`). Any schema change
+requires team review per `CONTRIBUTING.md`.

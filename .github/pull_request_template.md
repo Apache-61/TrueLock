@@ -1,34 +1,18 @@
-## Task
-
-<!-- TASK-### and a link to the task file / issue -->
-
 ## Summary
 
-<!-- What changed and why, 2-3 sentences. -->
+<!-- Concise description of changes and product purpose (2-3 sentences). -->
 
-## Changed files / areas
+## Verification & Test Evidence
 
-<!-- Confirm this PR stays within the task's allowed_paths (tasks/README.md, CONTRIBUTING.md §4). -->
+- [ ] `pytest -v` executed and passing locally
+- **Command & Output**: <!-- paste test summary count here -->
+- [ ] Demo scenario verified (`python scripts/verify_demo.py`)
+- [ ] Frontend build succeeds (`npm run build` in `frontend/`)
+- **Screenshot / UI Evidence**: <!-- attach screenshot or write N/A -->
 
-## Tests
+## Scope & Quality Checks
 
-- [ ] Ran the relevant test level(s) from `docs/testing.md`
-- [ ] `pytest` passes locally
-- Result: <!-- passed/failed counts -->
-
-## Contract impact
-
-- [ ] This PR does **not** change any file under `domain/schemas/` or `docs/contracts/`
-- [ ] This PR **does** change a contract — human authorization obtained (`CONTRIBUTING.md` §5): <!-- who/where -->
-
-## Documentation updated
-
-- [ ] Module README(s) reflect what's now implemented
-- [ ] `PROJECT_STATE.md` updated if this changes what's implemented/blocked
-- [ ] `CHANGELOG.md` updated if this is product-visible
-- [ ] `history/timeline.md` has one line for this task
-
-## Handoff
-
-<!-- Paste the task-result.json handoff (orchestrator/README.md) or fill in:
-     next_recommended_tasks, known_issues, requires_human_review -->
+- [ ] No unrelated or accidental files modified
+- [ ] Adheres to naming standards (`snake_case` Python, `PascalCase` React)
+- [ ] No secrets committed (checked against `.env.example`)
+- [ ] Human review completed for AI-assisted code

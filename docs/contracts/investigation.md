@@ -1,7 +1,7 @@
 # Contract: Investigation step (agent decisions)
 
-Schema: `domain/schemas/investigation_step.schema.json`. This is the
-**structured-output contract** referenced in `ARCHITECTURE.md` §6 — every
+Schema: `backend/src/truelock/domain/schemas/investigation_step.schema.json`. This is the
+**structured-output contract** referenced in `docs/architecture.md` — every
 decision the agent makes is one of these records, never free natural
 -language that something downstream has to parse.
 
@@ -33,7 +33,7 @@ decision the agent makes is one of these records, never free natural
 ## Rule: the frontend never parses prose to decide what happened
 
 The UI timeline (`docs/demo/runbook.md` step 4, "Observability" in
-`ARCHITECTURE.md`) renders these structured steps directly. Any narrative
+`docs/architecture.md`) renders these structured steps directly. Any narrative
 text the model produces is a *label* on a step, not the mechanism that
 drives control flow.
 
@@ -43,6 +43,6 @@ See `docs/investigation/protocol.md` for the full bounded-loop design:
 how a Lead becomes a sequence of Investigation Steps, when the loop
 terminates, and how a discarded branch is recorded.
 
-## Who owns this contract
+## Ownership
 
-Agent D (Agent/Evidence).
+Owned by the Forensic Investigator subsystem (`backend/src/truelock/agent/investigator.py`).

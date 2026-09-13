@@ -44,6 +44,6 @@ every Evidence record's `source_id`/`source_type` must trace back to one
 of those. If a judge asks "where does that number come from," the answer
 is always a specific record ID, never "the model computed it."
 
-## Who owns this contract
+## Ownership
 
-Agent D (Agent/Evidence).
+Evidence Collection Subsystem (`backend/src/truelock/evidence/exposure.py`).

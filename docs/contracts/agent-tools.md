@@ -1,6 +1,6 @@
 # Contract: Agent tools
 
-The forensic agent never receives unrestricted SQL (`ARCHITECTURE.md` §6,
+The forensic agent never receives unrestricted SQL (`docs/architecture.md`,
 `SECURITY.md`). It receives a fixed, typed tool surface. This is that
 surface — the function-calling schema Gemini is given.
 
@@ -43,15 +43,12 @@ source, and what lets the agent answer "where did that come from."
 
 - Read-only. No tool may write to the database or to this repository
   (`SECURITY.md` → "The forensic agent's authority").
-- Each tool is implemented once, in `agent/tools/`, and covered by a
-  contract test (`tests/contract/`) that checks the response shape
-  matches this doc regardless of which underlying query implementation is
-  used.
+- Each tool is implemented in `backend/src/truelock/agent/tools.py` and covered
+  by contract and unit tests that check response shapes match this doc.
 - `max_hops` / similar bounds exist on graph-traversal tools so the agent
   cannot accidentally walk the entire graph on one call — bound the blast
   radius of a single tool call.
 
-## Who owns this contract
+## Ownership
 
-Agent D (Agent/Evidence) defines it; Agent B (Data/Backend) implements the
-query layer underneath it.
+Forensic Agent Tool Layer (`backend/src/truelock/agent/tools.py`).

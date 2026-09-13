@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.ingest import (
+from truelock.seeder.ingestion import (
     BankCsvMapping,
     IngestError,
     parse_bank_csv,

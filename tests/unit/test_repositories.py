@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.repositories import (
+from truelock.database.repositories import (
     AccountRepository,
     EntityRepository,
     InMemoryRepositories,
@@ -30,7 +30,7 @@ from backend.repositories import (
     ProviderRepository,
     TransactionRepository,
 )
-from domain.entities import (
+from truelock.domain.models import (
     Account,
     EfosStatus,
     Entity,
@@ -71,7 +71,7 @@ class TestTheBoundaryHolds:
         """TASK-001 acceptance criterion 4, checked rather than asserted in prose."""
         source = (
             Path(__file__).resolve().parents[2]
-            / "backend" / "repositories" / "interfaces.py"
+            / "backend" / "src" / "truelock" / "database" / "repositories" / "interfaces.py"
         ).read_text(encoding="utf-8")
         imported: set[str] = set()
         for node in ast.walk(ast.parse(source)):

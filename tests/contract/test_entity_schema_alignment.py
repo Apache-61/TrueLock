@@ -18,9 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from domain.entities import CANONICAL_ENTITIES
+from truelock.domain.models import CANONICAL_ENTITIES
 
-SCHEMA_DIR = Path(__file__).resolve().parents[2] / "domain" / "schemas"
+SCHEMA_DIR = Path(__file__).resolve().parents[2] / "backend" / "src" / "truelock" / "domain" / "schemas"
 
 
 def load_schema(name: str) -> dict:

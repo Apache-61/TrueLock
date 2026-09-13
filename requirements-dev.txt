@@ -1,8 +1,0 @@
-# Dev/test dependencies for the repository-wide baseline (schema/contract
-# validation, task-queue checks). Module-specific requirements.txt files
-# (backend/, agent/, detection/) are added by the tasks that implement
-# those modules.
-# Runtime dependencies are needed to run the tests that exercise them.
--r requirements.txt
-
-pytest==8.3.3

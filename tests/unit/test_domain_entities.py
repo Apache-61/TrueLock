@@ -18,7 +18,7 @@ from datetime import date
 
 import pytest
 
-from domain.entities import (
+from truelock.domain.models import (
     CANONICAL_ENTITIES,
     Account,
     EfosStatus,

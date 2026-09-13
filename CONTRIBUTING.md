@@ -1,118 +1,61 @@
 # Contributing to TrueLock
 
-This repository is built in parallel by several people and several AI
-workers across four machines during a 31-hour hackathon. These rules exist
-so that parallel work doesn't collide, and so anyone (human or AI) can pick
-up a task with only the repository as context.
+Guidelines for contributing to the TrueLock Forensic Auditor platform.
 
-## 0. Before you touch anything
+---
 
-1. Read `PROJECT_STATE.md` — what's implemented, in progress, blocked.
-2. Read `ARCHITECTURE.md` — the frozen decisions. Don't re-litigate them
-   here; if one seems wrong, open a `type:decision` issue instead of
-   silently deviating.
-3. Read `tasks/README.md` and find or claim a task. Don't start
-   unscoped work.
+## 1. Development Workflow
 
-## 1. Worker identity
+1. **Branching**: Branch from `main` using descriptive names:
+   ```bash
+   git checkout -b feature/short-description
+   git checkout -b fix/short-description
+   ```
+2. **Local Environment**:
+   ```bash
+   # Install dependencies
+   pip install -e ".[dev]"
 
-Every machine/session gets a **WORKER_ID** (`WORKER-01` … `WORKER-04`,
-or a descriptive slug), set once per machine:
+   # Configure environment
+   cp .env.example .env
+   ```
+3. **Run Checks Before Opening PR**:
+   ```bash
+   # Run all backend unit, integration, and contract tests
+   pytest -v
 
-```bash
-export WORKER_ID="WORKER-01"
-```
+   # Run automated demo scenario verification
+   python scripts/verify_demo.py
 
-Never use only your GitHub username as worker identity — two people can
-share a GitHub account or push through the same bot token, and the claim
-protocol (`tasks/README.md` §Claim protocol) needs a stable identity that
-is not the account name. See `docs/orchestration/worker-setup.md`.
+   # Build frontend
+   cd frontend && npm install && npm run build
+   ```
+4. **Pull Requests**:
+   - Open a PR against `main` using the provided PR template.
+   - Include test output and screenshots where applicable.
+   - Every PR requires human review before merge.
 
-## 2. Claiming a task
+---
 
-Do not start work on a task just because it reads `status:ready`. Two
-workers can read that at the same instant. Follow the two-step
-**CLAIM → VERIFY** protocol in `tasks/README.md` before writing any code.
-If you lose the race, abandon the task immediately and claim a different
-one — do not "also" work on it "just in case."
+## 2. Naming & Placement Standards
 
-## 3. Branching
+- **Python packages, modules, functions, variables, SQL columns, YAML keys**: `snake_case`.
+- **Python classes, Pydantic models, React components**: `PascalCase`.
+- **React component filenames**: `PascalCase.tsx`.
+- **React hooks**: `useThing.ts`.
+- **API route groups**: Plural nouns (`/api/leads`, `/api/cases`, `/api/investigations`).
+- **Database migrations**: Ordered and immutable (`0001_init.sql`, `0002_payment_transaction_ids.sql`).
+- **Static seeds**: Numbered SQL scripts in `database/seeds/` (`001_demo.sql`).
+- **Tests**: Named `test_<behavior>.py` located in `tests/unit/`, `tests/integration/`, or `tests/contract/`.
+- **No catch-all directories**: Avoid `utils/`, `helpers/`, `misc/`. Create named modules with clear responsibilities.
 
-Never commit directly to `main`. One branch per task:
+---
 
-```
-feature/TASK-###-short-name
-research/TASK-###-topic
-fix/TASK-###-short-name
-experiment/TASK-###-name
-```
+## 3. Forensic & Evidence Invariants
 
-Keep branches short-lived. `main` is always demoable — do not merge
-anything that breaks the last known-good demo path.
-
-## 4. Ownership boundaries
-
-Each area has a primary owner (see `.github/CODEOWNERS` and
-`docs/contracts/`). Respect the **allowed / forbidden paths** declared on
-your task:
-
-| Owner | Allowed | Must not touch |
-|---|---|---|
-| Frontend (Agent A) | `frontend/**`, `docs/contracts/api.md` | `domain/**`, `detection/**`, `database/**`, `agent/**` |
-| Data/Backend (Agent B) | `backend/**`, `database/**`, `data/**`, `domain/schemas/**` | `frontend/**`, `agent/**`, `detection/rules/**` |
-| Detection/Graph (Agent C) | `detection/**`, `tests/scenarios/**`, `domain/entities/**` | `frontend/**`, `agent/**` |
-| Agent/Evidence (Agent D) | `agent/**`, `evidence/**`, `docs/investigation/**` | `database/**`, `frontend/**` |
-
-Changing a domain contract (`domain/schemas/**`, `docs/contracts/**`)
-requires the human authorization step below — it affects every module.
-
-## 5. Human authorization required for
-
-- changing a domain contract or its JSON Schema;
-- changing architecture (`ARCHITECTURE.md`);
-- adding a new infrastructure dependency or paid service;
-- changing security policy (`SECURITY.md`);
-- a database migration that affects existing data;
-- changing what authority the forensic agent has;
-- deploying to the demo environment;
-- merging a PR flagged high-risk.
-
-Everything else (formatting, linting, test runs, dataset validation, docs
-checks, local builds, opening issues, drafting PR descriptions, retrying a
-transient API error, moving an approved task into execution) can proceed
-without waiting for a human.
-
-## 6. Definition of done for any task
-
-1. Code/docs match the task's declared `allowed_paths` — nothing else
-   changed.
-2. Acceptance criteria in the task are met.
-3. Tests for the touched area pass (`pytest`, contract tests, or the
-   relevant scenario fixture).
-4. A `task-result.json` handoff is written (see
-   `docs/contracts/investigation.md`-style handoff format in
-   `orchestrator/README.md`) or, at minimum, the PR description covers the
-   same fields: summary, changed files, tests, blocking reason (if any),
-   next recommended task.
-5. `history/timeline.md` gets one line; `history/ai-activity/` gets an
-   entry if the task was executed by an AI worker.
-6. PR opened against `main`, not pushed directly.
-
-## 7. Two kinds of intelligence — keep them separate
-
-```
-FORENSIC INTELLIGENCE   = the investigator agent, reasoning over financial evidence
-DEVELOPMENT INTELLIGENCE = AI workers building this repository
-```
-
-Never give a development AI worker authority over a forensic conclusion.
-Never let the forensic agent modify this repository. Neither may bypass the
-contracts in `docs/contracts/`.
-
-## 8. Style
-
-- No commented-out code, no TODO-and-abandon. If something is
-  intentionally incomplete, say so in the module's README and in
-  `PROJECT_STATE.md`, not as a silent gap.
-- Prefer the boring, explainable option over the clever one — this system
-  has to survive a judge asking "why."
+When adding features, adhere strictly to the forensic principles in `docs/forensic-principles.md`:
+1. **Deterministic Authority Boundary**: Code (Python), not the LLM, owns arithmetic, parsing, graph traversal, and exposure calculations.
+2. **Proof Before Accusation**: All leads must resolve to `SUPPORTED`, `REJECTED`, or `INSUFFICIENT_EVIDENCE`. Never label an entity fraudulent without direct transactional proof.
+3. **No Edge Double-Counting**: Output exposure is calculated from unique root transactions, never by summing downstream transfer graph hops.
+4. **SAT 69-B is Contextual Evidence**: Tax authority listing is contextual evidence only; it never constitutes standalone proof of fraud.
+5. **Bounded Agent Execution**: The Gemini agent executes allowlisted, read-only tools with capped steps and strict timeout limits. No raw SQL or shell access.

@@ -1,26 +1,26 @@
 ---
-name: Bug
-about: Something is broken
-title: "BUG: "
-labels: type:bug, status:ready
+name: Bug Report
+about: Report a defect or broken behavior in TrueLock
+title: "[BUG] "
+labels: ["bug"]
 ---
 
-**priority:** P0 | P1 | P2 | P3
-**area:** frontend | backend | data | detection | graph | agent | evidence | database | infra | orchestrator
+**Priority:** P0 | P1 | P2 | P3
+**Area:** frontend | backend | detection | agent | database | api
 
-## What's broken
+## Description
+<!-- Clear and concise description of what is broken -->
 
-## Steps to reproduce
+## Steps to Reproduce
+1.
+2.
+3.
 
-## Expected vs. actual
+## Expected Behavior
+<!-- What should have happened -->
 
-## Allowed paths (for the fix)
-```
-```
+## Actual Behavior
+<!-- What actually happened, including error logs or stack traces -->
 
-## Acceptance criteria
-- [ ] Root cause identified, not just the symptom papered over
-- [ ] Regression test added
-
-Note: if this broke `main` or the demo path, also add an entry to
-`history/incidents/` (see `history/incidents/README.md`).
+## Verification
+- [ ] Reproducing test case or verification script added

@@ -1,18 +1,21 @@
-# backend/
+# Backend Service (`backend/`)
 
-**Purpose:** FastAPI service implementing `docs/contracts/api.md` over the
-domain/database layer.
+**Purpose:** FastAPI service and core product logic for TrueLock under `backend/src/truelock/`.
 
-**What goes here:** `api/` (route handlers), `services/` (business logic
-orchestrating repositories — e.g. assembling a Case view), `repositories/`
-(data access over `database/`).
+## Package Layout (`backend/src/truelock/`)
 
-**What does not go here:** detection rules (`detection/`), agent reasoning
-(`agent/`), frontend code (`frontend/`). The backend serves data and
-triggers investigation runs; it does not itself decide what's suspicious.
+- `api/` — FastAPI REST application and routers (`/health`, `/api/leads`, `/api/investigations/start`, `/api/cases/{case_id}/questions`, `/api/scenarios/reset`).
+- `agent/` — Google Gemini API integration (`gemini_client.py`), strictly allowlisted read-only tools (`tools.py`), and bounded loop coordinator (`investigator.py`).
+- `database/` — Database repositories and session management.
+- `detection/` — Deterministic detectors (`DET-ROUND-TRIP-CYCLE`, `DET-RAPID-PASS-THROUGH`, `DET-DUPLICATE-PAYMENT`, `DET-SHARED-ADDRESS-CONTROL`).
+- `domain/` — Normalized Pydantic models and JSON schemas (`models/`, `schemas/`).
+- `evidence/` — Exposure calculator (root-flow exposure without double-counting edges) and evidence collection with provenance hashes.
+- `seeder/` — Deterministic demo scenario generator and data ingestion parsers.
+- `services/` — Investigation orchestration and case Q&A services.
+- `settings.py` — Typed settings loaded from environment variables (`GEMINI_API_KEY`, `DATABASE_URL`, etc.).
 
-**Depends on:** `domain/`, `database/`, `docs/contracts/api.md`.
+## Running the Backend
 
-**Owner:** Agent B (Data/Backend). Empty at bootstrap time — see
-`tasks/ready/TASK-001-canonical-ingestion.md` and
-`tasks/ready/TASK-002-database-schema.md`.
+```bash
+uvicorn truelock.api.app:app --host 0.0.0.0 --port 8000 --reload
+```

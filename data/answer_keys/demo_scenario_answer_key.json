@@ -1,0 +1,22 @@
+{
+  "scenario_id": "SCENARIO-P0-ROUND-TRIP",
+  "expected_findings": [
+    {
+      "detector_id": "DET-ROUND-TRIP-CYCLE",
+      "expected_outcome": "SUPPORTED",
+      "cycle_path": ["012180000000000001", "012180000000000002", "012180000000000003", "012180000000000001"],
+      "root_transaction_id": "TX-ROOT-001",
+      "root_amount_mxn": 1000000.0,
+      "downstream_pass_through_mxn": 920000.0,
+      "returned_amount_mxn": 740000.0,
+      "supported_exposure_mxn": 1000000.0,
+      "net_unrecovered_exposure_mxn": 260000.0,
+      "accounting_policy": "ROOT_FLOW_UNDUPLICATED_WITH_RETURN_OFFSET"
+    },
+    {
+      "detector_id": "DET-SHARED-ADDRESS-CONTROL",
+      "expected_outcome": "REJECTED_OR_LOW_RISK",
+      "reason": "Shared commercial address does not constitute economic linkage or fraud when entities have distinct RFCs, accounts, and independent business purpose."
+    }
+  ]
+}

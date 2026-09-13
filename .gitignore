@@ -5,10 +5,8 @@
 *.key
 *.pem
 
-# Orchestrator runtime state (never a source of truth, see orchestrator/README.md)
+# Application & Agent Runtime State
 .state/
-orchestrator/state/*.json
-!orchestrator/state/README.md
 
 # Python
 __pycache__/
@@ -26,6 +24,7 @@ node_modules/
 dist/
 build/
 .turbo/
+*.tsbuildinfo
 
 # Data that must not be committed wholesale (raw/real records)
 data/raw/*

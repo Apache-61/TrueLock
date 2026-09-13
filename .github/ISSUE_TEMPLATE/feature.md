@@ -1,35 +1,18 @@
 ---
-name: Feature task
-about: New capability to build (maps to a tasks/ file)
-title: "TASK-XXX: "
-labels: type:feature, status:ready
+name: Feature Request
+about: Propose a capability or enhancement for TrueLock
+title: "[FEATURE] "
+labels: ["enhancement"]
 ---
 
-<!-- Copy tasks/templates/task-template.md fields below. See tasks/README.md
-     for the state machine and claim protocol before starting work. -->
+**Priority:** P0 | P1 | P2
+**Module:** frontend | backend | detection | agent | database | api
 
-**priority:** P0 | P1 | P2 | P3
-**owner (area):** frontend (A) | backend/data (B) | detection/graph (C) | agent/evidence (D)
-**depends_on:**
-**human_authorization:** yes/no
+## Goal & User Impact
+<!-- Why is this needed and who benefits? -->
 
-## Objective
+## Proposed Solution
+<!-- Concrete architectural description of the change -->
 
-## Allowed paths
-```
-```
-
-## Forbidden paths
-```
-```
-
-## Input
-
-## Output
-
-## Acceptance criteria
-- [ ]
-
-## Tests required
-
-## Documentation requirements
+## Forensic & Evidence Invariants
+<!-- How does this maintain deterministic authority and auditability? -->

@@ -35,8 +35,5 @@ records, supplier lists.
 
 - [ ] Obtain the official challenge PDF and reconcile every requirement
       above against it — especially anything scoring-specific.
-- [ ] Update `PROJECT_STATE.md` → "Blocked" once this is resolved.
-- [ ] Flag any requirement here that turns out to be wrong once the real
-      PDF is available, rather than silently editing this file — note the
-      discrepancy in `history/decisions/` if it changes something already
+- [ ] Record any discrepancies in `docs/decisions.md` if it changes something already
       built.

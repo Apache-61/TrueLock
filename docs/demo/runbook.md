@@ -1,6 +1,6 @@
 # Demo runbook
 
-The target three-minute judge flow. Nothing in `ARCHITECTURE.md` §12's
+The target three-minute judge flow. Nothing in `docs/architecture.md`'s
 critical path is done until this runbook can actually be performed.
 
 ## Steps
@@ -50,7 +50,7 @@ Every primary dependency has a documented fallback
 (`research/infrastructure/README.md` → "Fallback matrix"). If Gemini is
 unreachable mid-demo, the system falls back to a recorded deterministic
 investigation script rather than stopping
-(`ARCHITECTURE.md`/operating pack §37 — "the judge should never see
+(`docs/architecture.md` §12 — "the judge should never see
 'Gemini is down, therefore the demo is over.'"). Test this fallback before
 the actual demo, not during it.
 
@@ -65,6 +65,6 @@ the actual demo, not during it.
       system's "reject an accusation" capability is demonstrated too
 - [ ] Q&A tested against the three questions above
 - [ ] Gemini local fallback tested (kill network, confirm demo survives)
-- [ ] Provider/API failover tested (`orchestrator/policies/provider-pool.yaml`)
+- [ ] Provider/API failover tested (`config/agent-providers.yaml`)
 - [ ] Budget monitoring checked, not just assumed
 - [ ] Demo environment clean (no leftover test data from a previous run)

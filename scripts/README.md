@@ -1,15 +1,20 @@
-# scripts/
+# Operational Scripts (`scripts/`)
 
-**Purpose:** operational scripts — not product code, not tests, but the
-glue that runs both.
+Minimal, explicit entry points for seeding, executing, and verifying the TrueLock demo.
 
-- `ingest/` — turn `data/raw/` into `data/normalized/`.
-- `validate/` — schema/contract validation runnable outside pytest (used
-  by CI and by hand).
-- `demo/` — load a scenario, inject a hidden fraud pattern, reset between
-  demo runs (`docs/demo/runbook.md`).
-- `orchestration/` — the task claim/verify protocol and (later) worker
-  adapters (`orchestrator/README.md`).
-- `setup/` — one-time repo setup a human runs once (labels, branch
-  protection) — see `PROJECT_STATE.md` → "Blocked" for why these are
-  scripts rather than already applied.
+- `seed_demo.py` — Seeds the canonical synthetic fraud scenario ($1,000,000 root transfer, $920,000 downstream hop, $740,000 kickback return) and the legitimate co-located supplier controls.
+- `run_demo.py` — Runs the full end-to-end forensic investigation using Google Gemini (with deterministic fallback) and demonstrates evidence-grounded judge Q&A.
+- `verify_demo.py` — Verifies all forensic invariants deterministically: cycle detection, root-flow exposure calculation (zero edge double-counting), provenance hashing, and legitimate control classification.
+
+## Usage
+
+```bash
+# Seed the demo dataset
+python scripts/seed_demo.py
+
+# Run verification of all forensic rules and calculations
+python scripts/verify_demo.py
+
+# Run full end-to-end demo execution
+python scripts/run_demo.py
+```

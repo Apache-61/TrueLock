@@ -1,24 +1,15 @@
 ---
-name: Decision
-about: A choice that needs to be made and recorded (architecture, contract change, new dependency, etc.)
-title: "DECISION: "
-labels: type:decision, status:research
+name: Architectural Decision Record
+about: Propose or record an architectural or forensic product decision
+title: "[ADR] "
+labels: ["decision"]
 ---
 
-<!-- Anything in CONTRIBUTING.md §5's "human authorization required" list
-     goes through this template, not a silent code change. -->
+## Context
+<!-- What is the problem or architectural trade-off? -->
 
-## What needs deciding
+## Decision
+<!-- What approach was chosen and why? -->
 
-## Options considered
-| Option | Pros | Cons |
-|---|---|---|
-
-## Recommendation
-
-## Reversibility
-
-## Once decided
-- [ ] Add a row to `DECISIONS.md`
-- [ ] Write the full record in `history/decisions/ADR-XXXX-slug.md`
-- [ ] Link this issue from the ADR and vice versa
+## Consequences
+<!-- Positive and negative trade-offs -->

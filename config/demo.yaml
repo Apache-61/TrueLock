@@ -1,0 +1,35 @@
+# TrueLock Demo Scenario Configuration
+scenario_id: SCENARIO-P0-ROUND-TRIP
+title: "Empresa Operadora Nacional -> Constructora Primaria -> Logistica Fantasma Round Trip"
+
+root_transaction:
+  id: "TX-ROOT-001"
+  from_account: "012180000000000001"
+  to_account: "012180000000000002"
+  amount_mxn: 1000000.00
+
+pass_through_transaction:
+  id: "TX-HOP-001"
+  from_account: "012180000000000002"
+  to_account: "012180000000000003"
+  amount_mxn: 920000.00
+  window_hours: 2
+
+return_transaction:
+  id: "TX-RET-001"
+  from_account: "012180000000000003"
+  to_account: "012180000000000001"
+  amount_mxn: 740000.00
+
+expected_exposure:
+  supported_root_amount: 1000000.00
+  verified_returned_amount: 740000.00
+  net_exposure: 260000.00
+  policy: "ROOT_FLOW_UNDUPLICATED_WITH_RETURN_OFFSET"
+
+control_group:
+  address: "Av. Reforma 222, Piso 4, CDMX"
+  entities:
+    - "ENT-VENDOR-CONTROL-A"
+    - "ENT-VENDOR-CONTROL-B"
+  expected_verdict: "REJECTED_OR_LOW_RISK"

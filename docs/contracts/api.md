@@ -20,7 +20,7 @@ POST /demo/inject-fraud        -> { scenario_id?: string } -> { entity_id: strin
 ## Observability event shape
 
 Rendered as the live timeline in `docs/demo/runbook.md` step 4 /
-`ARCHITECTURE.md` "Observability":
+`docs/architecture.md` "Observability":
 
 ```json
 { "timestamp": "2026-08-13T14:03:16Z", "case_id": "CASE-001", "message": "Tracing payment TX-8821", "step_id": "I-004" }
@@ -41,8 +41,7 @@ the full `InvestigationStep` if the user clicks in.
 - `POST /demo/inject-fraud` exists specifically so judges can hide a new
   fraud pattern and watch the system find it (`docs/demo/runbook.md`).
 
-## Who owns this contract
+## Ownership
 
-Agent B (Data/Backend) implements the server side; Agent A (Frontend)
-consumes it and may propose changes but needs Agent B's/human sign-off to
-change the shape (`CONTRIBUTING.md` §5 covers contract changes broadly).
+Backend API subsystem (`backend/src/truelock/api/app.py`) implements the server side;
+Frontend (`frontend/lib/api.ts`) consumes it. Contract changes follow team review conventions in `CONTRIBUTING.md`.

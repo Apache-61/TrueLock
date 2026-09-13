@@ -1,28 +1,8 @@
 # CODEOWNERS
-#
-# Placeholder: real GitHub usernames for the 4 workstation owners are not
-# yet known to this bootstrap. Everything defaults to the repo owner for
-# now. Replace the commented per-area lines below with actual usernames
-# once assigned, and uncomment them — see CONTRIBUTING.md §4 for the
-# area -> agent mapping this mirrors.
-
 *                       @apache-61
 
-# --- Fill in once team members are assigned to areas ---
-# frontend/**                          @AGENT-A-GITHUB-USERNAME
-# backend/**                           @AGENT-B-GITHUB-USERNAME
-# database/**                          @AGENT-B-GITHUB-USERNAME
-# data/**                              @AGENT-B-GITHUB-USERNAME
-# detection/**                         @AGENT-C-GITHUB-USERNAME
-# agent/**                             @AGENT-D-GITHUB-USERNAME
-# evidence/**                          @AGENT-D-GITHUB-USERNAME
-
-# Contracts affect every module - require broader sign-off.
-# domain/schemas/**                    @apache-61 @AGENT-B-GITHUB-USERNAME @AGENT-C-GITHUB-USERNAME @AGENT-D-GITHUB-USERNAME
-# docs/contracts/**                    @apache-61 @AGENT-B-GITHUB-USERNAME @AGENT-C-GITHUB-USERNAME @AGENT-D-GITHUB-USERNAME
-
-# Architecture/security/decisions always need the repo owner's eyes.
-ARCHITECTURE.md                        @apache-61
-SECURITY.md                            @apache-61
-DECISIONS.md                           @apache-61
-history/decisions/**                   @apache-61
+# Core architecture and decisions
+docs/architecture.md    @apache-61
+docs/forensic-principles.md @apache-61
+docs/decisions.md       @apache-61
+SECURITY.md             @apache-61

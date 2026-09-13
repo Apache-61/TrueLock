@@ -1,0 +1,60 @@
+{
+  "scenario_id": "SCENARIO-P0-ROUND-TRIP",
+  "company": {
+    "id": "ENT-COMPANY-001",
+    "name": "Empresa Operadora Nacional SA de CV",
+    "rfc": "EDE180101AA1",
+    "account_no": "012180000000000001"
+  },
+  "primary_vendor": {
+    "id": "ENT-VENDOR-001",
+    "name": "Constructora e Infraestructura Primaria SA de CV",
+    "rfc": "CPR190515BB2",
+    "account_no": "012180000000000002"
+  },
+  "shell_intermediary": {
+    "id": "ENT-SHELL-001",
+    "name": "Logística y Enlaces Rápidos Fantasma SA de CV",
+    "rfc": "LSF200820CC3",
+    "account_no": "012180000000000003",
+    "sat_69b_status": "DEFINITIVE"
+  },
+  "transactions": [
+    {
+      "id": "TX-ROOT-001",
+      "from_account": "012180000000000001",
+      "to_account": "012180000000000002",
+      "amount": 1000000.0,
+      "date": "2026-08-02",
+      "type": "ROOT_DISBURSEMENT"
+    },
+    {
+      "id": "TX-HOP-001",
+      "from_account": "012180000000000002",
+      "to_account": "012180000000000003",
+      "amount": 920000.0,
+      "date": "2026-08-02",
+      "type": "RAPID_PASS_THROUGH"
+    },
+    {
+      "id": "TX-RET-001",
+      "from_account": "012180000000000003",
+      "to_account": "012180000000000001",
+      "amount": 740000.0,
+      "date": "2026-08-03",
+      "type": "CIRCULAR_RETURN"
+    }
+  ],
+  "control_group": [
+    {
+      "rfc": "PCR150310AA1",
+      "name": "Papelería Corporativa Reforma SA",
+      "address": "Av. Reforma 222, Piso 4, CDMX"
+    },
+    {
+      "rfc": "CRL170822BB2",
+      "name": "Consultoría Reforma Legal SC",
+      "address": "Av. Reforma 222, Piso 4, CDMX"
+    }
+  ]
+}

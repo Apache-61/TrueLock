@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCHEMAS_DIR = REPO_ROOT / "domain" / "schemas"
+SCHEMAS_DIR = REPO_ROOT / "backend" / "src" / "truelock" / "domain" / "schemas"
 
 REQUIRED_TOP_LEVEL_KEYS = {"$schema", "$id", "title", "description", "type"}
 

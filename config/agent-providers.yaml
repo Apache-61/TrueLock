@@ -1,0 +1,44 @@
+# Legitimate multi-project provider pool. Every project here is one the
+# team is authorized to use (own Gemini projects/keys). This router
+# never attempts to circumvent provider quotas or billing controls — it
+# only chooses among projects/providers the team already has budget for.
+# See docs/decisions.md and docs/architecture.md.
+
+providers:
+  - id: gemini-project-a
+    provider: google
+    key_env: GEMINI_KEY_A
+    max_session_budget_usd: 75
+
+  - id: gemini-project-b
+    provider: google
+    key_env: GEMINI_KEY_B
+    max_session_budget_usd: 75
+
+  - id: gemini-project-c
+    provider: google
+    key_env: GEMINI_KEY_C
+    max_session_budget_usd: 75
+
+  - id: gemini-project-d
+    provider: google
+    key_env: GEMINI_KEY_D
+    max_session_budget_usd: 75
+
+# Provider failover and session budgets:
+#
+#   request -> classify task -> select required model class ->
+#   check provider policy -> check local budget ledger ->
+#   check recent failures -> select lowest-cost healthy provider ->
+#   execute -> record usage
+#
+#   on 429:  retry with backoff, then try another authorized provider/project
+#   on 5xx:  retry
+#   on hard budget stop: fall back per research/infrastructure/README.md's
+#            fallback matrix (recorded fixture / deterministic agent)
+#
+# Every switch must be logged as:
+#   ROUTING_EVENT { from, to, reason }
+# so spend stays auditable. Never switch silently.
+
+hard_budget_stop_usd: 280   # total across all 4 projects; ~$300 available

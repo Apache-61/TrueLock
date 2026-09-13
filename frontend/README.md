@@ -1,23 +1,30 @@
-# frontend/
+# Frontend Application (`frontend/`)
 
-**Purpose:** the investigation UI — the screens listed in
-`docs/demo/runbook.md` (dashboard, investigation view, graph, money
-trail, evidence, case file, Q&A).
+**Purpose:** Next.js 14 investigation UI for TrueLock.
 
-**What goes here:** the Next.js/TypeScript app, built against
-`docs/contracts/api.md`. Until `backend/` is ready, build against a mock
-implementation of that same contract (static fixtures) so both sides can
-progress in parallel.
+## Architecture & Responsibilities
 
-**What does not go here:** any business logic that decides what counts as
-suspicious (that's `detection/`/`agent/`, exposed only through the API) —
-the frontend renders what the API returns, it does not compute risk
-scores or evidence itself.
+- Renders what the backend API returns via `docs/contracts/api.md`.
+- Never owns business logic, fraud scoring, or exposure calculation.
+- Typed API client in `frontend/lib/api.ts` maps directly to backend REST endpoints.
 
-**Depends on:** `docs/contracts/api.md`, `research/graph/README.md`
-(Cytoscape.js).
+## Directory Layout
 
-**Owner:** Agent A (Frontend). Must not touch: `domain/**`,
-`detection/**`, `database/**`, `agent/**` (`CONTRIBUTING.md` §4).
+- `app/` — Next.js App Router entry points (`layout.tsx`, `page.tsx`, `globals.css`).
+- `components/` — Modular investigation components:
+  - `LeadsDashboard.tsx` — Ranked suspicious leads with risk scoring.
+  - `InvestigationTimeline.tsx` — Step-by-step "What the auditor did" trace.
+  - `MoneyTrailGraph.tsx` — Visual money trail graph with circular return indicators.
+  - `EvidencePanel.tsx` — Collected forensic evidence with provenance hashes.
+  - `CaseFileView.tsx` — Case summary, supported/net exposure, citations, and limitations.
+  - `JudgeQAPanel.tsx` — Interactive evidence-grounded Q&A panel for judges.
+- `lib/` — API client and utility formatters (`api.ts`).
+- `types/` — Shared TypeScript interface contracts (`index.ts`).
 
-Empty at bootstrap time — see `tasks/ready/TASK-006-frontend-shell.md`.
+## Development
+
+```bash
+cd frontend
+npm install
+npm run dev
+```

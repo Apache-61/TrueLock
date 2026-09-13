@@ -40,8 +40,7 @@ OPEN → DISCARDED  (deliberately not pursued — discard_reason is required)
 model decided it wasn't worth it." This is what lets the system answer a
 judge's "why did you discard supplier Y?" (`docs/demo/runbook.md` step 8).
 
-## Who owns this contract
+## Ownership
 
-Agent C (Detection/Graph) produces Leads; Agent D (Agent/Evidence)
-consumes them. Both must agree on any schema change (human authorization
-required, `CONTRIBUTING.md` §5).
+Produced by Detection Layer (`backend/src/truelock/detection/detectors.py`) and consumed by
+Forensic Investigator (`backend/src/truelock/agent/investigator.py`).

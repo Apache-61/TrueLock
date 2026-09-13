@@ -2,7 +2,7 @@
 
 Every row here is a deterministic detector (`docs/contracts/detector.md`),
 never an LLM call. Priority order matches what unlocks a demoable vertical
-slice fastest (`ARCHITECTURE.md` §12).
+slice fastest (`docs/architecture.md`).
 
 ## High-value deterministic patterns
 

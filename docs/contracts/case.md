@@ -39,11 +39,9 @@ artifact — see `docs/demo/runbook.md` steps 9-12.
   change your conclusion?"
 - `citations` — regulatory/rule references, so "why is this relevant"
   always traces to something outside the model's own say-so.
-- `evidence_hash` — optional; if Solana notarization is wired
-  (`history/decisions/ADR-0004-sponsor-tech-scope.md`), this is the value
-  anchored on-chain.
+- `evidence_hash` — SHA-256 hash anchoring evidence integrity.
 
-## Who owns this contract
+## Ownership
 
-Agent D (Agent/Evidence). The API contract for serving/rendering a Case is
+Owned by the Evidence and Case Service subsystem (`backend/src/truelock/services/case_service.py`). The API contract for serving/rendering a Case is
 `docs/contracts/api.md`.
