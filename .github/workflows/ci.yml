@@ -9,13 +9,39 @@ jobs:
   backend-tests:
     name: Backend Validation + Pytest
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: truelock
+          POSTGRES_PASSWORD: truelock_dev_only
+          POSTGRES_DB: truelock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U truelock -d truelock"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://truelock:truelock_dev_only@localhost:5432/truelock
+      TRUELOCK_TEST_DATABASE_URL: postgresql://truelock:truelock_dev_only@localhost:5432/truelock
     steps:
       - uses: actions/checkout@v4
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - name: Install dependencies
         run: pip install ".[dev]"
+      - name: Verify CLI requirements
+        run: bash scripts/check_requirements.sh
+      - name: Apply migrations and SQL invariant tests
+        run: |
+          bash scripts/migrate.sh
+          bash scripts/seed_demo.sh
+          bash scripts/test_database.sh
       - name: Run Pytest
         run: pytest -v
 

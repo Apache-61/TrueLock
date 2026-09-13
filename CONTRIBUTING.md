@@ -21,7 +21,12 @@ Guidelines for contributing to the TrueLock Forensic Auditor platform.
    ```
 3. **Run Checks Before Opening PR**:
    ```bash
+   # Verify required CLI tools (psql, python, node)
+   bash scripts/check_requirements.sh
+
    # Run all backend unit, integration, and contract tests
+   export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5432/truelock'
+   export TRUELOCK_TEST_DATABASE_URL="$DATABASE_URL"
    pytest -v
 
    # Run automated demo scenario verification

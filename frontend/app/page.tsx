@@ -77,7 +77,7 @@ export default function Home() {
 
       {/* Money Trail Visualization Banner */}
       <div style={{ marginBottom: "1.5rem" }}>
-        <MoneyTrailGraph />
+        <MoneyTrailGraph caseId={investigation?.case.case_id || null} />
       </div>
 
       {/* Main Grid: Leads on Left, Investigation & Findings on Right */}

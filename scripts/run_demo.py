@@ -29,8 +29,12 @@ def main() -> None:
         print(f"  [{lead.lead_id}] Score: {lead.risk_score:.2f} | Detector: {lead.detector_id}")
         print(f"    Reason: {lead.reason}")
 
-    # 3. Investigate the Top Fraud Lead
-    top_lead = next(l for l in leads if l.detector_id == "DET-ROUND-TRIP-CYCLE")
+    # 3. Investigate the Top Fraud Lead (prefer economic root when ties exist)
+    cycle_leads = [l for l in leads if l.detector_id == "DET-ROUND-TRIP-CYCLE"]
+    top_lead = next(
+        (l for l in cycle_leads if "TX-ROOT-001" in l.lead_id),
+        next(l for l in leads if l.detector_id == "DET-ROUND-TRIP-CYCLE"),
+    )
     print(f"\n[Phase 2] Launching Bounded Agent Investigation on {top_lead.lead_id}...")
     result = inv_service.start_investigation(top_lead.lead_id)
 

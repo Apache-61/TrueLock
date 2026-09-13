@@ -42,12 +42,35 @@ def main() -> None:
     assert control_leads[0].risk_score < 0.5, "Control lead must not be flagged high risk"
     print("[OK] Deterministic detector coverage verified (cycle found, control low-risk)")
 
-    # 4. Verify investigation execution
-    res = service.start_investigation(cycle_leads[0].lead_id)
+    # 4. Verify investigation execution against real trail sources
+    cycle_lead = next(
+        (l for l in cycle_leads if "TX-ROOT-001" in l.lead_id),
+        cycle_leads[0],
+    )
+    res = service.start_investigation(cycle_lead.lead_id)
     assert len(res["steps"]) > 0, "Steps must be recorded"
     assert len(res["evidence"]) > 0, "Evidence must be accumulated"
     assert res["case"]["status"] == "SUBSTANTIATED", "Case must be substantiated"
-    print("[OK] Investigation loop verified (steps recorded, evidence collected, case substantiated)")
+    assert res["case"]["amount_involved"] == 1_000_000.0, (
+        "Supported exposure must equal root amount (ROOT_FLOW policy)"
+    )
+    result_refs = [ref for step in res["steps"] for ref in step.get("result_refs", [])]
+    assert any("TX-ROOT-001" in str(ref) for ref in result_refs), (
+        "Investigation must cite TX-ROOT-001 in result_refs"
+    )
+    evidence_sources = [e.get("source_id") for e in res["evidence"]]
+    assert "TX-ROOT-001" in evidence_sources, "Evidence must cite bank record TX-ROOT-001"
+    assert all(not str(p).startswith("01218") for p in res["case"]["providers_involved"]), (
+        "providers_involved must be RFCs, not account numbers"
+    )
+    print("[OK] Investigation loop verified (real trail, exposure, case substantiated)")
+
+    # 5. Control lead must not be substantiated as fraud
+    control_res = service.start_investigation(control_leads[0].lead_id)
+    assert control_res["case"]["status"] != "SUBSTANTIATED", (
+        "Control shared-address lead must not be substantiated"
+    )
+    print("[OK] Control lead correctly unsubstantiated")
 
     print("\nALL INVARIANTS VERIFIED SUCCESSFULLY.")
 

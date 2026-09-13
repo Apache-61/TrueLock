@@ -1,8 +1,9 @@
 # database/migrations/
 
-**Purpose:** versioned, forward-only SQL migrations. `0001_init.sql` is
-the initial schema mirroring `domain/schemas/`; `0002_payment_transaction_ids.sql`
-adds the `Payment.transaction_ids` field from the canonical entity.
+**Purpose:** versioned, forward-only SQL migrations. `0001_init.sql` and
+`0002_payment_transaction_ids.sql` are legacy compatibility tables. The
+production source of truth is the forward-only canonical `truelock` schema
+introduced by migrations `0003` through `0007`.
 
 **What goes here:** `NNNN_description.sql` files, never edited once
 applied anywhere -- a change is a new migration.
@@ -14,16 +15,13 @@ applied anywhere -- a change is a new migration.
 
 ## Applying migrations
 
-Run every `*.sql` file in lexical filename order with `ON_ERROR_STOP=1`.
-The scripts use `IF NOT EXISTS`, so an interrupted or repeated application
-is safe:
+Use the migration runner. It records canonical migrations in
+`truelock.schema_migrations` and does not reapply them:
 
 ```bash
-for migration in database/migrations/*.sql; do
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
-done
+bash scripts/migrate.sh
 ```
 
-`0002_payment_transaction_ids.sql` has a documented forward path: apply it
-after `0001_init.sql`; do not edit an already-applied migration to change
-the schema.
+Do not edit an already-applied migration; add a new numbered migration for
+any schema change. Demo data is explicitly loaded with
+`bash scripts/seed_demo.sh`, never during migration.

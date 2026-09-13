@@ -55,7 +55,22 @@ Instead of operating as an ungrounded LLM classifier or a brittle rule table, Tr
 ### 1. Prerequisites
 - Python 3.10+
 - Node.js 18+ & npm
-- PostgreSQL 15+ (or Docker)
+- **`psql`** (PostgreSQL client CLI) — required for migrations, seeds, and database tests
+- PostgreSQL 16+ server (local install or `docker compose up -d postgres`)
+
+Verify tools before working on the database layer:
+
+```bash
+bash scripts/check_requirements.sh
+```
+
+Install `psql` if missing:
+
+| Platform | Command |
+| --- | --- |
+| Ubuntu / Debian | `sudo apt-get install postgresql-client` |
+| macOS | `brew install libpq && brew link --force libpq` |
+| Windows | `winget install PostgreSQL.PostgreSQL.16` (restart shell) |
 
 ### 2. Backend Setup
 ```bash
@@ -78,10 +93,12 @@ pip install -e ".[dev]"
 # Start Postgres using Docker Compose
 docker compose up -d postgres
 
-# Or apply migrations manually
-psql $DATABASE_URL -f database/migrations/0001_init.sql
-psql $DATABASE_URL -f database/migrations/0002_payment_transaction_ids.sql
-psql $DATABASE_URL -f database/seeds/001_demo.sql
+export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5432/truelock'
+
+# Apply migrations, load the canonical demo once, and verify SQL invariants
+bash scripts/migrate.sh
+bash scripts/seed_demo.sh
+bash scripts/test_database.sh
 ```
 
 ### 4. Run the Backend API
@@ -114,7 +131,8 @@ python scripts/verify_demo.py
 # 3. Execute the full end-to-end investigation walkthrough
 python scripts/run_demo.py
 
-# 4. Run the entire backend test suite
+# 4. Run the entire backend test suite (integration DB tests need psql + DATABASE_URL)
+export TRUELOCK_TEST_DATABASE_URL="$DATABASE_URL"
 pytest -v
 ```
 

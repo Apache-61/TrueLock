@@ -17,9 +17,7 @@ class Settings:
 
     # Database
     database_url: str = field(
-        default_factory=lambda: os.getenv(
-            "DATABASE_URL", "postgresql://truelock:truelock_dev@localhost:5432/truelock"
-        )
+        default_factory=lambda: os.getenv("DATABASE_URL", "")
     )
 
     # Google Gemini API
@@ -36,8 +34,13 @@ class Settings:
 
     # Demo & fixture paths
     demo_mode: bool = field(
-        default_factory=lambda: os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+        default_factory=lambda: os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
     )
+
+    @property
+    def database_enabled(self) -> bool:
+        """Only a configured server-side URL enables production persistence."""
+        return bool(self.database_url.strip())
 
 
 settings = Settings()

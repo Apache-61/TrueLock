@@ -4,6 +4,7 @@
 
 ## Verification & Test Evidence
 
+- [ ] `bash scripts/check_requirements.sh` passes (`psql` available)
 - [ ] `pytest -v` executed and passing locally
 - **Command & Output**: <!-- paste test summary count here -->
 - [ ] Demo scenario verified (`python scripts/verify_demo.py`)

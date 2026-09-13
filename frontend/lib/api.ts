@@ -30,6 +30,23 @@ export async function fetchInvestigation(caseId: string): Promise<InvestigationD
   return res.json();
 }
 
+export async function fetchMoneyTrail(caseId: string): Promise<{
+  case_id: string;
+  nodes: Array<{ entity_id: string; canonical_name: string; entity_type: string; rfc?: string }>;
+  edges: Array<{
+    bank_transaction_id: string;
+    component_type: string;
+    traced_amount_mxn: number;
+    origin_entity_id: string;
+    destination_entity_id: string;
+    booked_at: string;
+  }>;
+}> {
+  const res = await fetch(`${API_BASE}/api/graph/${caseId}`);
+  if (!res.ok) throw new Error(`Failed fetching money trail: ${res.statusText}`);
+  return res.json();
+}
+
 export async function askQuestion(
   caseId: string,
   question: string

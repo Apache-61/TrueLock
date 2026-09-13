@@ -143,31 +143,37 @@ class GeminiClient:
         tools: list[dict[str, Any]] | None = None,
         error_msg: str | None = None,
     ) -> GeminiResponse:
-        """Deterministic fallback when Gemini API is unavailable or unconfigured."""
-        # If tools were supplied, select the appropriate next tool based on prompt context
-        if tools:
-            tool_names = [t["name"] for t in tools]
-            if "trace_outgoing_funds" in tool_names and ("round_trip" in prompt or "rapid" in prompt or "TX-" in prompt):
-                return GeminiResponse(
-                    function_call={"name": "trace_outgoing_funds", "args": {"depth": 3}},
-                    is_fallback=True,
-                    model="fallback-deterministic",
-                )
-            if "inspect_counterparties" in tool_names:
-                return GeminiResponse(
-                    function_call={"name": "inspect_counterparties", "args": {}},
-                    is_fallback=True,
-                    model="fallback-deterministic",
-                )
-            if tool_names:
-                return GeminiResponse(
-                    function_call={"name": tool_names[0], "args": {}},
-                    is_fallback=True,
-                    model="fallback-deterministic",
-                )
+        """Deterministic fallback when Gemini API is unavailable or unconfigured.
 
+        When ``tools`` are supplied, do not emit a ``function_call`` — invalid
+        args previously poisoned the investigator loop. ``ForensicInvestigator``
+        owns the offline tool plan when ``is_fallback=True``.
+
+        When no tools are supplied (Q&A / narrative), return a grounded stub
+        that refuses to invent facts beyond the prompt context.
+        """
+        if tools:
+            return GeminiResponse(
+                content=(
+                    "[Offline Fallback] Investigation deferred to deterministic "
+                    f"tool plan. {error_msg or ''}"
+                ).strip(),
+                is_fallback=True,
+                model="fallback-deterministic",
+                function_call=None,
+            )
+
+        answer = (
+            "[Offline Fallback] Unable to reach the model. Based only on the "
+            "case and evidence provided in the prompt, re-check the cited "
+            "evidence IDs in the case file. If those records do not answer the "
+            "question, the evidence is insufficient."
+        )
+        if error_msg:
+            answer = f"{answer} ({error_msg})"
         return GeminiResponse(
-            content=f"[Offline Fallback] Investigation completed deterministically. {error_msg or ''}".strip(),
+            content=answer,
             is_fallback=True,
             model="fallback-deterministic",
+            function_call=None,
         )

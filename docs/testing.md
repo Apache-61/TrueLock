@@ -35,11 +35,24 @@ minimal — there is no product code yet to test beyond its contracts.
 ## Running
 
 ```bash
-pip install -r requirements-dev.txt   # once it exists (TASK-00x)
+pip install -e ".[dev]"
+bash scripts/check_requirements.sh
 pytest
 ```
 
-CI runs the same command on every PR — see `.github/workflows/ci.yml`.
+### PostgreSQL integration tests
+
+Database integration tests require **`psql`** and a reachable PostgreSQL instance:
+
+```bash
+docker compose up -d postgres
+export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5432/truelock'
+export TRUELOCK_TEST_DATABASE_URL="$DATABASE_URL"
+bash scripts/migrate.sh
+pytest -v tests/integration/test_database.py
+```
+
+CI installs `postgresql-client`, starts a Postgres service container, runs the migration/seed/invariant scripts, and executes the full pytest suite on every PR — see `.github/workflows/ci.yml`.
 
 ### Opt-in tests that cost money
 

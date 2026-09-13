@@ -12,13 +12,17 @@ decision the agent makes is one of these records, never free natural
   "step_id": "I-007",
   "lead_id": "L-001",
   "action": "TRACE_OUTGOING_FUNDS",
-  "tool": "trace_transactions",
+  "tool": "trace_outgoing_funds",
   "reason": "Determine destination of supplier payment",
-  "inputs": { "transaction_id": "TX-8841" },
-  "result_refs": ["TX-9011", "TX-9014"],
+  "inputs": { "account_id": "012180000000000001", "max_depth": 3 },
+  "result_refs": ["TX-ROOT-001", "TX-HOP-001", "HASH:a1b2c3..."],
   "decision": "FOLLOW"
 }
 ```
+
+`result_refs` must include recoverable domain record IDs (transaction,
+invoice, RFC, etc.) plus an optional execution hash (`HASH:…`) for
+auditability. Hashes alone are not sufficient evidence.
 
 ## Decision values
 
@@ -26,7 +30,8 @@ decision the agent makes is one of these records, never free natural
 - `DISCARD` — stop; insufficient signal to continue (record why in the
   Lead's `discard_reason` if this ends the lead entirely).
 - `ESCALATE` — flag for human review (e.g. ambiguous evidence that a
-  human auditor should see before the case commits to a status).
+  human auditor should see before the case commits to a status, or step
+  budget exhausted).
 - `CONCLUDE` — enough evidence exists to assemble the Case
   (`docs/contracts/case.md`).
 
