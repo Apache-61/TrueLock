@@ -1,0 +1,9 @@
+{
+  "scenario_id": "shell_network",
+  "detector_id": "SHELL_NETWORK",
+  "expected_leads": [{ "detector_id": "SHELL_NETWORK", "min_risk_score": 0.60 }],
+  "negative_case": {
+    "description": "Shared address alone without phone/fund/EFOS multi-factor must not fire",
+    "expected_leads": []
+  }
+}

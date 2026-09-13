@@ -1,0 +1,19 @@
+{
+  "corpus_id": "efos_contextual_only",
+  "scenario_id": "efos_negative_no_accusation",
+  "input_lead": {
+    "detector_id": "69B_CORRELATION",
+    "risk_score_max": 0.59
+  },
+  "allowed_tools": ["check_regulatory_status", "get_invoice_details"],
+  "expected_trail": [],
+  "minimum_evidence": [],
+  "expected_terminal_decision": "DISCARD",
+  "notes": "EFOS listing alone must not produce a fraud accusation.",
+  "audit_questions": [
+    {
+      "question": "Is a 69-B listing sufficient to conclude fraud?",
+      "expected_theme": "contextual_not_conclusive"
+    }
+  ]
+}

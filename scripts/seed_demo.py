@@ -1,10 +1,10 @@
-"""Seed the TrueLock demo scenario into memory or print fixture summary."""
+"""Seed the TrueLock demo scenario into memory, or summarize Postgres readiness."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
-# Ensure backend/src is on import path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend" / "src"))
 
@@ -34,7 +34,12 @@ def main() -> None:
     print("  Cycle Flow:       1,000,000.00 MXN -> 920,000.00 MXN -> 740,000.00 MXN return")
     print("\nControl Group:")
     print("  Suppliers sharing Av. Reforma 222 (no inter-transfer, legitimate independent vendors)")
-    print("Successfully initialized demo scenario.")
+    print("Successfully initialized in-memory demo scenario.")
+    if os.environ.get("DATABASE_URL"):
+        print(
+            "\nDATABASE_URL is set. Persist the same canonical scenario with:\n"
+            "  bash scripts/migrate.sh && bash scripts/seed_demo.sh"
+        )
 
 
 if __name__ == "__main__":

@@ -19,8 +19,24 @@ class CaseService:
         case: Case,
         evidence: list[dict[str, Any]],
         question: str,
+        *,
+        investigation_step_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         """Answer an auditor or judge question, grounded strictly in the collected evidence."""
+        evidence_refs = [str(item.get("evidence_id")) for item in evidence if item.get("evidence_id")]
+        if not evidence_refs:
+            return {
+                "case_id": case.case_id,
+                "question": question,
+                "answer": (
+                    "The persisted case file does not contain admissible evidence to answer this question. "
+                    "Status: INSUFFICIENT_EVIDENCE."
+                ),
+                "evidence_refs": [],
+                "investigation_step_ids": investigation_step_ids or [],
+                "model": "deterministic-guard",
+            }
+
         evidence_summary = "\n".join(
             f"- [{e.get('evidence_id')}] ({e.get('type')}, {e.get('strength')}): {e.get('claim')}"
             for e in evidence
@@ -46,10 +62,16 @@ class CaseService:
             system_instruction="You are TrueLock's Forensic Case Assistant. You answer questions strictly grounded on audited evidence.",
         )
 
+        answer = resp.content or "No response generated."
+        if evidence_refs and not any(ref in answer for ref in evidence_refs[:3]):
+            answer = f"{answer}\n\nEvidence refs: {', '.join(evidence_refs)}"
+
         return {
             "case_id": case.case_id,
             "question": question,
-            "answer": resp.content or "No response generated.",
+            "answer": answer,
+            "evidence_refs": evidence_refs,
+            "investigation_step_ids": investigation_step_ids or [],
             "is_fallback": resp.is_fallback,
             "model": resp.model,
         }

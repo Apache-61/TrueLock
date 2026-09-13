@@ -1,0 +1,9 @@
+{
+  "scenario_id": "fan_in",
+  "detector_id": "FAN_IN",
+  "expected_leads": [{ "detector_id": "FAN_IN", "min_risk_score": 0.60 }],
+  "negative_case": {
+    "description": "Fewer than 3 origins must not fire",
+    "expected_leads": []
+  }
+}

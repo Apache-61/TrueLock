@@ -56,4 +56,6 @@ def test_start_investigation_and_qa_flow():
         json={"question": "What evidence proves this transaction was circular?"},
     )
     assert qa_resp.status_code == 200
-    assert "answer" in qa_resp.json()
+    qa_data = qa_resp.json()
+    assert "answer" in qa_data
+    assert "evidence_refs" in qa_data

@@ -1,0 +1,9 @@
+{
+  "scenario_id": "unusual_timing",
+  "detector_id": "UNUSUAL_TIMING",
+  "expected_leads": [{ "detector_id": "UNUSUAL_TIMING" }],
+  "negative_case": {
+    "description": "Payment days after issue must not fire same-day timing",
+    "expected_leads": []
+  }
+}

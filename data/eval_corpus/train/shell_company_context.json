@@ -1,0 +1,28 @@
+{
+  "corpus_id": "shell_company_train",
+  "scenario_id": "shell_network_positive",
+  "dataset": "shell_network_positive",
+  "input_lead": {
+    "detector_id": "SHELL_NETWORK",
+    "risk_score": 0.7
+  },
+  "allowed_tools": [
+    "inspect_counterparties",
+    "check_regulatory_status",
+    "get_invoice_details",
+    "trace_outgoing_funds"
+  ],
+  "expected_trail": [],
+  "minimum_evidence": [],
+  "expected_terminal_decision": "",
+  "expected_case_status": null,
+  "expected_amount_involved": null,
+  "audit_questions": [
+    {
+      "question": "Can EFOS listing alone substantiate fraud?",
+      "must_include_evidence_refs": false,
+      "expected_theme": "efos_is_context_not_autonomous_proof"
+    }
+  ],
+  "notes": "Train practice — shell/EFOS context must not auto-substantiate."
+}

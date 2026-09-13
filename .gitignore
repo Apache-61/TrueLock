@@ -38,3 +38,9 @@ data/raw/*
 
 # Logs
 *.log
+
+# Test artifacts
+test-results/
+frontend/test-results/
+playwright-report/
+**/test-results/

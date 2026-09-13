@@ -1,0 +1,11 @@
+{
+  "scenario_id": "circular_flow_dedup",
+  "detector_id": "DET-ROUND-TRIP-CYCLE",
+  "expected_leads": [
+    {
+      "detector_id": "DET-ROUND-TRIP-CYCLE",
+      "exact_count": 1,
+      "note": "Equivalent rotations of the same cycle must collapse to one lead"
+    }
+  ]
+}

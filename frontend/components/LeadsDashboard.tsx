@@ -25,6 +25,12 @@ export function LeadsDashboard({
         <span style={{ fontSize: "0.85rem", color: "#8b9bb4" }}>{leads.length} Signals Scored</span>
       </h3>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        {leads.length === 0 && (
+          <p style={{ margin: 0, fontSize: "0.85rem", color: "#8b9bb4" }}>
+            No leads yet. Use <strong style={{ color: "#e2e8f0" }}>Load demo</strong> or upload a dataset
+            under Add Dataset.
+          </p>
+        )}
         {leads.map((lead) => {
           const isHighRisk = lead.risk_score >= 0.7;
           const isSelected = selectedLeadId === lead.lead_id;

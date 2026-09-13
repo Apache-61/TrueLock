@@ -1,0 +1,14 @@
+{
+  "scenario_id": "invoice_payment_mismatch",
+  "detector_id": "INVOICE_PAYMENT_MISMATCH",
+  "expected_leads": [
+    {
+      "detector_id": "INVOICE_PAYMENT_MISMATCH",
+      "min_risk_score": 0.60
+    }
+  ],
+  "negative_case": {
+    "description": "Exact payment match must not fire",
+    "expected_leads": []
+  }
+}

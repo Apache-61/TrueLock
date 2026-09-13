@@ -6,15 +6,15 @@ DECLARE
     bad_count integer;
 BEGIN
     SELECT count(*) INTO actual_count FROM truelock.schema_migrations;
-    IF actual_count <> 5 THEN
-        RAISE EXCEPTION 'Expected 5 migrations, found %', actual_count;
+    IF actual_count <> 8 THEN
+        RAISE EXCEPTION 'Expected 8 migrations, found %', actual_count;
     END IF;
 
     SELECT count(*) INTO actual_count
     FROM truelock.source_files
     WHERE case_id = '10000000-0000-0000-0000-000000000001';
-    IF actual_count <> 4 THEN
-        RAISE EXCEPTION 'Expected 4 demo source files, found %', actual_count;
+    IF actual_count < 6 THEN
+        RAISE EXCEPTION 'Expected at least 6 demo source files, found %', actual_count;
     END IF;
 
     SELECT count(*) INTO bad_count
@@ -40,10 +40,26 @@ BEGIN
         4,
         interval '30 days'
     )
-    WHERE depth = 4
-      AND bank_transaction_id = '70000000-0000-0000-0000-000000000004';
+    WHERE depth = 3
+      AND bank_transaction_id = '70000000-0000-0000-0000-000000000003';
     IF actual_count <> 1 THEN
-        RAISE EXCEPTION 'Expected one four-edge return path, found %', actual_count;
+        RAISE EXCEPTION 'Expected one three-edge return path, found %', actual_count;
+    END IF;
+
+    SELECT count(*) INTO actual_count
+    FROM truelock.bank_transactions
+    WHERE case_id = '10000000-0000-0000-0000-000000000001'
+      AND external_transaction_id IN ('TX-ROOT-001', 'TX-HOP-001', 'TX-RET-001');
+    IF actual_count <> 3 THEN
+        RAISE EXCEPTION 'Canonical cycle transactions missing, found %', actual_count;
+    END IF;
+
+    SELECT count(*) INTO actual_count
+    FROM truelock.entities
+    WHERE case_id = '10000000-0000-0000-0000-000000000001'
+      AND rfc IN ('EDE180101AA1', 'CPR190515BB2', 'LSF200820CC3', 'PCR150310AA1', 'CRL170822BB2');
+    IF actual_count <> 5 THEN
+        RAISE EXCEPTION 'Canonical RFCs missing, found %', actual_count;
     END IF;
 END;
 $$;
@@ -60,8 +76,8 @@ BEGIN
     IF summary.supported_root_exposure_mxn <> 1000000 THEN
         RAISE EXCEPTION 'Root exposure should be 1000000, got %', summary.supported_root_exposure_mxn;
     END IF;
-    IF summary.downstream_traced_mxn <> 1660000 THEN
-        RAISE EXCEPTION 'Downstream flow should be 1660000, got %', summary.downstream_traced_mxn;
+    IF summary.downstream_traced_mxn <> 920000 THEN
+        RAISE EXCEPTION 'Downstream flow should be 920000, got %', summary.downstream_traced_mxn;
     END IF;
     IF summary.returned_or_recovered_mxn <> 740000 THEN
         RAISE EXCEPTION 'Returned amount should be 740000, got %', summary.returned_or_recovered_mxn;

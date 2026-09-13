@@ -3,10 +3,7 @@
 set -euo pipefail
 
 missing=()
-
-if ! command -v psql >/dev/null 2>&1; then
-  missing+=("psql — PostgreSQL client (required for migrations, seeds, and SQL invariant tests)")
-fi
+warnings=()
 
 if ! command -v python >/dev/null 2>&1; then
   missing+=("python — Python 3.10+")
@@ -14,6 +11,14 @@ fi
 
 if ! command -v node >/dev/null 2>&1; then
   missing+=("node — Node.js 18+ (frontend)")
+fi
+
+if ! command -v psql >/dev/null 2>&1; then
+  if [[ "${REQUIRE_PSQL:-0}" == "1" ]]; then
+    missing+=("psql — PostgreSQL client (required for migrations, seeds, and SQL invariant tests)")
+  else
+    warnings+=("psql missing — DB migrate/seed/integration tests unavailable (set REQUIRE_PSQL=1 to require it)")
+  fi
 fi
 
 if ((${#missing[@]})); then
@@ -31,7 +36,14 @@ if ((${#missing[@]})); then
   exit 1
 fi
 
-echo "psql:   $(psql --version)"
+if ((${#warnings[@]})); then
+  echo "Warnings:" >&2
+  printf '  - %s\n' "${warnings[@]}" >&2
+fi
+
 echo "python: $(python --version 2>&1)"
 echo "node:   $(node --version)"
+if command -v psql >/dev/null 2>&1; then
+  echo "psql:   $(psql --version)"
+fi
 echo "All required CLI tools are available."

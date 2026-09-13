@@ -28,14 +28,14 @@ Each detector emits `detector_signal` records
 aggregates signals per entity into a `risk_score` (deterministic weighted
 sum — no ML model for this build, see `research/rejected-ideas/README.md`)
 and produces a `Lead` when the score crosses a documented threshold
-(`docs/contracts/leads.md`). The exact weights are implementation detail
-of `TASK-004`; document them in `detection/scoring/README.md` once set, so
-they're citable when a judge asks "why this threshold."
+(`docs/contracts/leads.md`). Exact weights and the pursue threshold are
+documented in `backend/src/truelock/detection/scoring/README.md`.
 
 ## Graph patterns
 
 `FAN_IN`, `FAN_OUT`, and `CIRCULAR_FLOW` run over the money-flow graph
-(`research/graph/README.md`) built in `detection/graph/`, using NetworkX.
+built in `backend/src/truelock/detection/graph/` (adjacency indexes;
+NetworkX optional for future research).
 
 ## Test scenarios
 

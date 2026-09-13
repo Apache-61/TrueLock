@@ -1,0 +1,90 @@
+[
+  {
+    "lead_type": "DET-ROUND-TRIP-CYCLE",
+    "steps": [
+      {
+        "tool": "trace_outgoing_funds",
+        "args_example": { "account_id": "012180000000000001", "max_depth": 3 },
+        "why": "Establish the money trail from the economic root account."
+      },
+      {
+        "tool": "inspect_counterparties",
+        "args_example": { "entity_id": "ENT-VENDOR-001" },
+        "why": "Identify RFCs on the path before concluding."
+      },
+      {
+        "tool": "calculate_exposure",
+        "args_example": {
+          "root_flow_id": "TX-ROOT-001",
+          "root_amount": 1000000.0,
+          "downstream_transfers": [920000.0],
+          "returned_amount": 740000.0
+        },
+        "why": "Compute root-flow exposure without double-counting edges."
+      }
+    ],
+    "terminal": "CONCLUDE"
+  },
+  {
+    "lead_type": "DET-RAPID-PASS-THROUGH",
+    "steps": [
+      {
+        "tool": "trace_outgoing_funds",
+        "args_example": { "account_id": "012180000000000091", "max_depth": 2 },
+        "why": "Confirm inflow then rapid outbound hop within the temporal window."
+      },
+      {
+        "tool": "calculate_exposure",
+        "args_example": {
+          "root_flow_id": "TX-HIDDEN-ROOT-001",
+          "root_amount": 550000.0,
+          "downstream_transfers": [500500.0],
+          "returned_amount": 0.0
+        },
+        "why": "Exposure stays at the root inflow; do not sum the hop."
+      }
+    ],
+    "terminal": "CONCLUDE",
+    "note": "Pass-through concludes only with timed bank evidence, not vendor opacity alone."
+  },
+  {
+    "lead_type": "DET-DUPLICATE-PAYMENT",
+    "steps": [
+      {
+        "tool": "get_payment_details",
+        "args_example": { "payment_id": "PMT-HIDDEN-DUP-001" },
+        "why": "Retrieve the second settlement against the same invoice UUID."
+      },
+      {
+        "tool": "get_invoice_details",
+        "args_example": { "invoice_uuid": "11111111-2222-3333-4444-555555555555" },
+        "why": "Confirm the invoice was already settled once before the duplicate payment."
+      }
+    ],
+    "terminal": "CONCLUDE"
+  },
+  {
+    "lead_type": "DET-SHARED-ADDRESS-CONTROL",
+    "steps": [
+      {
+        "tool": "inspect_counterparties",
+        "args_example": { "entity_id": "ENT-VENDOR-CONTROL-A" },
+        "why": "Confirm distinct RFCs and absence of fund linkage."
+      }
+    ],
+    "terminal": "DISCARD",
+    "note": "Shared address alone is not economic linkage."
+  },
+  {
+    "lead_type": "69B_CORRELATION",
+    "steps": [
+      {
+        "tool": "check_regulatory_status",
+        "args_example": { "rfc": "LSF200820CC3" },
+        "why": "Record 69-B status as contextual only."
+      }
+    ],
+    "terminal": "DISCARD",
+    "note": "EFOS/69-B listing never substantiates fraud by itself."
+  }
+]

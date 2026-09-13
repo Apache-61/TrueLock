@@ -1,0 +1,27 @@
+{
+  "corpus_id": "train_duplicate_payment_inject",
+  "scenario_id": "hidden_duplicate_payment",
+  "input_lead": {
+    "detector_id": "DET-DUPLICATE-PAYMENT",
+    "risk_score": 0.85
+  },
+  "allowed_tools": [
+    "get_payment_details",
+    "get_invoice_details",
+    "trace_outgoing_funds",
+    "calculate_exposure"
+  ],
+  "expected_trail": [],
+  "minimum_evidence": [],
+  "expected_terminal_decision": "",
+  "expected_case_status": null,
+  "expected_amount_involved": null,
+  "audit_questions": [
+    {
+      "question": "Which payment evidences a duplicate settlement?",
+      "must_include_evidence_refs": false,
+      "acceptable_source_ids": ["PMT-HIDDEN-DUP-001", "TX-HIDDEN-DUP-001"]
+    }
+  ],
+  "notes": "Live-training inject target. Soft offline gates."
+}

@@ -25,7 +25,7 @@ Guidelines for contributing to the TrueLock Forensic Auditor platform.
    bash scripts/check_requirements.sh
 
    # Run all backend unit, integration, and contract tests
-   export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5432/truelock'
+   export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5433/truelock'
    export TRUELOCK_TEST_DATABASE_URL="$DATABASE_URL"
    pytest -v
 

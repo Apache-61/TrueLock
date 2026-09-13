@@ -1,7 +1,7 @@
 """Deterministic seed fixtures for the TrueLock end-to-end hackathon demo."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from truelock.database.repositories.memory import InMemoryRepositories
 from truelock.domain.models import (
     Account,
@@ -13,6 +13,10 @@ from truelock.domain.models import (
     Provider,
     Transaction,
 )
+
+
+def _at(year: int, month: int, day: int, hour: int, minute: int = 0) -> datetime:
+    return datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
 
 
 def load_demo_scenario(repo: InMemoryRepositories | None = None) -> InMemoryRepositories:
@@ -126,6 +130,7 @@ def load_demo_scenario(repo: InMemoryRepositories | None = None) -> InMemoryRepo
             from_account="012180000000000001",
             to_account="012180000000000002",
             transaction_date=date(2026, 8, 2),
+            booked_at=_at(2026, 8, 2, 9, 0),
             amount=1000000.0,
             related_payment_id="PMT-ROOT-001",
         )
@@ -137,6 +142,7 @@ def load_demo_scenario(repo: InMemoryRepositories | None = None) -> InMemoryRepo
             from_account="012180000000000002",
             to_account="012180000000000003",
             transaction_date=date(2026, 8, 2),
+            booked_at=_at(2026, 8, 2, 11, 0),
             amount=920000.0,
         )
     )
@@ -147,6 +153,7 @@ def load_demo_scenario(repo: InMemoryRepositories | None = None) -> InMemoryRepo
             from_account="012180000000000003",
             to_account="012180000000000001",
             transaction_date=date(2026, 8, 3),
+            booked_at=_at(2026, 8, 3, 10, 0),
             amount=740000.0,
         )
     )
@@ -207,6 +214,7 @@ def load_demo_scenario(repo: InMemoryRepositories | None = None) -> InMemoryRepo
             from_account="012180000000000001",
             to_account="012180000000000004",
             transaction_date=date(2026, 8, 4),
+            booked_at=_at(2026, 8, 4, 12, 0),
             amount=15420.0,
         )
     )
@@ -216,6 +224,7 @@ def load_demo_scenario(repo: InMemoryRepositories | None = None) -> InMemoryRepo
             from_account="012180000000000001",
             to_account="012180000000000005",
             transaction_date=date(2026, 8, 5),
+            booked_at=_at(2026, 8, 5, 12, 0),
             amount=38500.0,
         )
     )

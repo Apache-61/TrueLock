@@ -1,0 +1,6 @@
+{
+  "scenario_id": "supplier_concentration",
+  "detector_id": "SUPPLIER_CONCENTRATION",
+  "expected_leads": [{ "detector_id": "SUPPLIER_CONCENTRATION", "min_risk_score": 0.60 }],
+  "negative_case": { "description": "Balanced spend must not fire", "expected_leads": [] }
+}

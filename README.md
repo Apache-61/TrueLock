@@ -90,16 +90,21 @@ pip install -e ".[dev]"
 
 ### 3. Start PostgreSQL Database
 ```bash
-# Start Postgres using Docker Compose
+# Requires Docker Desktop (Windows/macOS) or Docker Engine (Linux)
 docker compose up -d postgres
 
-export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5432/truelock'
+export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5433/truelock'
+export TRUELOCK_TEST_DATABASE_URL="$DATABASE_URL"
 
-# Apply migrations, load the canonical demo once, and verify SQL invariants
-bash scripts/migrate.sh
-bash scripts/seed_demo.sh
+# Preferred on Windows: migrate+seed inside Compose (reliable psql)
+docker compose --profile app run --rm migrate
+
+# Or native scripts when psql handles the URL / PG* env vars:
+# bash scripts/migrate.sh && bash scripts/seed_demo.sh
 bash scripts/test_database.sh
 ```
+
+Host port **5433** avoids clashing with a local Windows PostgreSQL install on 5432.
 
 ### 4. Run the Backend API
 ```bash
@@ -171,8 +176,11 @@ TrueLock/
 
 ## Documentation
 
+- **Judge / reviewer start here:** hosted [https://truelockfa.tech/docs](https://truelockfa.tech/docs) (local `http://localhost:3000/docs`) or markdown [`docs/challenge/README.md`](docs/challenge/README.md) → runbook → API → training. Pack: `dist/docs-pack/` (`dist/truelock-docs-pack.zip`). Cloud DNS steps: [`docs/ops/hosted-tech-domain.md`](docs/ops/hosted-tech-domain.md).
 - [`docs/architecture.md`](docs/architecture.md) — Detailed technical stack, boundaries, and system components.
 - [`docs/forensic-principles.md`](docs/forensic-principles.md) — Grounding rules, evidence admissibility, and exposure standards.
-- [`docs/demo-script.md`](docs/demo-script.md) — Live judge walkthrough script and questions.
+- [`docs/demo/README.md`](docs/demo/README.md) · [`docs/demo-script.md`](docs/demo-script.md) — Demo path and spoken walkthrough.
+- [`docs/deployment.md`](docs/deployment.md) — Compose; Postgres host port **5433**.
+- [`docs/testing.md`](docs/testing.md) — Verification baseline.
 - [`docs/decisions.md`](docs/decisions.md) — Active architectural decisions.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Code style, pull request guidelines, and development standards.

@@ -1,0 +1,10 @@
+{
+  "scenario_id": "hidden_pass_through",
+  "expected_lead_patterns": ["LEAD-PASSTHROUGH", "LEAD-CYCLE"],
+  "root_transaction_id": "TX-HIDDEN-ROOT-001",
+  "hop_transaction_id": "TX-HIDDEN-HOP-001",
+  "root_amount_mxn": 550000.0,
+  "hop_amount_mxn": 500500.0,
+  "vendor_rfc": "SOV240101AA1",
+  "note": "Answer key for judge injection only — never exposed to agent runtime."
+}

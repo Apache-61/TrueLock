@@ -1,0 +1,15 @@
+{
+  "eval_seed": "fase6-eval-2026-09",
+  "gates": {
+    "min_valid_args_rate": 1.0,
+    "max_repeated_tool_calls": 0,
+    "min_source_coverage": 0.66,
+    "require_terminal_match": true,
+    "require_exposure_match": true,
+    "require_no_invented_sources": true,
+    "require_qa_evidence_refs_when_requested": true,
+    "max_steps": 10,
+    "forbid_substantiated_on_control": true,
+    "forbid_substantiated_on_efos_only": true
+  }
+}

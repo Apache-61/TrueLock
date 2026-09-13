@@ -48,8 +48,11 @@ export function InvestigationTimeline({ steps }: Props) {
                 {step.decision}
               </span>
             </div>
+            {step.reason && (
+              <p style={{ margin: "0 0 0.4rem 0", fontSize: "0.82rem", color: "#cbd5e1" }}>{step.reason}</p>
+            )}
             <p style={{ margin: "0 0 0.4rem 0", fontSize: "0.82rem", color: "#94a3b8" }}>
-              <strong>Tool:</strong> <code>{step.tool}</code> | <strong>Inputs:</strong> {JSON.stringify(step.inputs)}
+              <strong>Tool:</strong> <code>{step.tool || "—"}</code> | <strong>Inputs:</strong> {JSON.stringify(step.inputs || {})}
             </p>
             {step.result_refs && step.result_refs.length > 0 && (
               <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>

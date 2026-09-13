@@ -1,0 +1,27 @@
+{
+  "corpus_id": "train_unusual_timing_control",
+  "scenario_id": "unusual_timing_positive",
+  "dataset": "unusual_timing_positive",
+  "input_lead": {
+    "detector_id": "UNUSUAL_TIMING",
+    "risk_score": 0.4
+  },
+  "allowed_tools": [
+    "inspect_counterparties",
+    "get_invoice_details",
+    "check_regulatory_status"
+  ],
+  "expected_trail": [],
+  "minimum_evidence": [],
+  "expected_terminal_decision": "",
+  "expected_case_status": null,
+  "expected_amount_involved": null,
+  "audit_questions": [
+    {
+      "question": "Is unusual timing alone enough to substantiate fraud?",
+      "must_include_evidence_refs": false,
+      "expected_theme": "timing_is_signal_not_proof"
+    }
+  ],
+  "notes": "Train signal pack — timing alone must not drive SUBSTANTIATED."
+}

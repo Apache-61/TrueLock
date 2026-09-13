@@ -1,0 +1,15 @@
+{
+  "scenario_id": "duplicate_invoice",
+  "detector_id": "DUPLICATE_INVOICE",
+  "expected_leads": [
+    {
+      "detector_id": "DUPLICATE_INVOICE",
+      "min_risk_score": 0.60,
+      "must_cite_sources": true
+    }
+  ],
+  "negative_case": {
+    "description": "Different issue date and amount must not fire DUPLICATE_INVOICE",
+    "expected_leads": []
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "corpus_id": "hidden_pass_through_train",
+  "scenario_id": "hidden_pass_through",
+  "input_lead": {
+    "lead_id": "LEAD-PASSTHROUGH-012180000000000091",
+    "detector_id": "DET-RAPID-PASS-THROUGH",
+    "entity_id": "012180000000000091",
+    "risk_score": 0.91
+  },
+  "allowed_tools": [
+    "trace_outgoing_funds",
+    "inspect_counterparties",
+    "check_regulatory_status",
+    "calculate_exposure",
+    "get_invoice_details",
+    "get_payment_details"
+  ],
+  "expected_trail": [],
+  "minimum_evidence": [
+    { "source_id": "TX-HIDDEN-ROOT-001", "type": "TRANSACTION" }
+  ],
+  "expected_terminal_decision": "",
+  "expected_case_status": null,
+  "expected_amount_involved": null,
+  "audit_questions": [
+    {
+      "question": "Which transfers show the rapid pass-through?",
+      "must_include_evidence_refs": false,
+      "acceptable_source_ids": ["TX-HIDDEN-ROOT-001", "TX-HIDDEN-HOP-001"]
+    }
+  ],
+  "notes": "Live-training target after judge inject. Soft offline gates; tighten after Gemini loop."
+}

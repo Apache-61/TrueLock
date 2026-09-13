@@ -1,0 +1,14 @@
+{
+  "scenario_id": "unusual_amount",
+  "detector_id": "UNUSUAL_AMOUNT",
+  "expected_leads": [
+    {
+      "detector_id": "UNUSUAL_AMOUNT",
+      "min_risk_score": 0.60
+    }
+  ],
+  "negative_case": {
+    "description": "Stable amounts near the median must not fire",
+    "expected_leads": []
+  }
+}

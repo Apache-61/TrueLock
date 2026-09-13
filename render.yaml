@@ -1,0 +1,41 @@
+# Render blueprint — TrueLock API + Postgres
+# Public site: https://truelockfa.tech  API: https://api.truelockfa.tech
+
+databases:
+  - name: truelock-pg
+    plan: free
+    databaseName: truelock
+    user: truelock
+
+services:
+  - type: web
+    name: truelock-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /ready
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: truelock-pg
+          property: connectionString
+      - key: FRONTEND_ORIGIN
+        value: https://truelockfa.tech
+      - key: TRUELOCK_PROVIDERS_CONFIG
+        value: /app/config/agent-providers.json
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_KEY_A
+        sync: false
+      - key: GEMINI_KEY_B
+        sync: false
+      - key: GEMINI_KEY_C
+        sync: false
+      - key: GEMINI_KEY_D
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: HARD_BUDGET_STOP_USD
+        value: "280"
+    # Custom domain: attach api.truelockfa.tech in the Render dashboard (CNAME).

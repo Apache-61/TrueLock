@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: pip install ".[dev]"
       - name: Verify CLI requirements
-        run: bash scripts/check_requirements.sh
+        run: REQUIRE_PSQL=1 bash scripts/check_requirements.sh
       - name: Apply migrations and SQL invariant tests
         run: |
           bash scripts/migrate.sh
@@ -44,6 +44,10 @@ jobs:
           bash scripts/test_database.sh
       - name: Run Pytest
         run: pytest -v
+      - name: Agent eval promotion gate
+        run: PYTHONPATH=backend/src python scripts/eval_agent.py
+      - name: Recovery runbook verification
+        run: PYTHONPATH=backend/src python scripts/verify_recovery.py
 
   frontend-build:
     name: Frontend Build & Typecheck
@@ -56,6 +60,9 @@ jobs:
       - name: Install Frontend Dependencies
         working-directory: frontend
         run: npm install
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: npm test
       - name: Build Frontend
         working-directory: frontend
         run: npm run build

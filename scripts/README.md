@@ -29,7 +29,7 @@ Database shell scripts (`migrate.sh`, `seed_demo.sh`, `test_database.sh`) invoke
 bash scripts/check_requirements.sh
 
 # Initialize PostgreSQL (after docker compose up -d postgres)
-export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5432/truelock'
+export DATABASE_URL='postgresql://truelock:truelock_dev_only@localhost:5433/truelock'
 bash scripts/migrate.sh
 bash scripts/seed_demo.sh
 bash scripts/test_database.sh

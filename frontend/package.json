@@ -3,17 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prebuild": "node scripts/sync-docs.mjs",
+    "predev": "node scripts/sync-docs.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node __tests__/investigationUi.test.mjs",
+    "test:e2e": "playwright test",
+    "sync-docs": "node scripts/sync-docs.mjs"
   },
   "dependencies": {
     "next": "14.2.10",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.47.2",
     "@types/node": "20.14.9",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",

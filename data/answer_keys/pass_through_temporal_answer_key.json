@@ -1,0 +1,15 @@
+{
+  "scenario_id": "pass_through_temporal",
+  "detector_id": "DET-RAPID-PASS-THROUGH",
+  "expected_leads": [
+    {
+      "detector_id": "DET-RAPID-PASS-THROUGH",
+      "requires_temporal_order": true,
+      "window_hours": 24
+    }
+  ],
+  "negative_case": {
+    "description": "Outbound after 48h must not fire",
+    "expected_leads": []
+  }
+}

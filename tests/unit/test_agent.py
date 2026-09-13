@@ -1,6 +1,8 @@
 """Unit tests for bounded agent tools and investigator."""
 from __future__ import annotations
 
+import json
+
 from truelock.agent.gemini_client import GeminiClient
 from truelock.agent.investigator import ForensicInvestigator
 from truelock.agent.tools import TOOL_DEFINITIONS, ToolRegistry, validate_tool_args
@@ -209,6 +211,140 @@ def test_investigator_budget_exhaustion_escalates():
     case, steps, _evidence = investigator.investigate(lead)
     # With max_steps=1 we only trace then hit budget guard → ESCALATE.
     assert any(s.decision == StepDecision.ESCALATE for s in steps)
+    assert any(s.tool == "step_budget_guard" for s in steps)
+    assert case.status == "INSUFFICIENT_EVIDENCE"
+
+
+def test_phase2_follow_requires_progress_and_full_hashes():
+    registry = _registry()
+    investigator = ForensicInvestigator(
+        registry, gemini_client=GeminiClient(api_key=""), max_steps=5
+    )
+    lead = Lead(
+        lead_id="LEAD-CYCLE-TX-ROOT-001",
+        entity_id="012180000000000001",
+        detector_id="DET-ROUND-TRIP-CYCLE",
+        reason="Circular fund movement",
+        risk_score=0.95,
+        status=LeadStatus.OPEN,
+    )
+    case, steps, _evidence = investigator.investigate(lead)
+    tool_steps = [s for s in steps if s.tool != "step_budget_guard"]
+    assert any(s.decision == StepDecision.FOLLOW for s in tool_steps)
+    assert any(s.decision == StepDecision.CONCLUDE for s in tool_steps)
+    assert case.status == "SUBSTANTIATED"
+
+    call_keys = []
+    for step in tool_steps:
+        hashes = [r for r in step.result_refs if str(r).startswith("HASH:")]
+        assert hashes, "each tool step must include a result hash"
+        digest = hashes[0].removeprefix("HASH:")
+        assert len(digest) == 64
+        assert all(c in "0123456789abcdef" for c in digest)
+        assert any(not str(r).startswith("HASH:") for r in step.result_refs)
+        call_keys.append((step.tool, json.dumps(step.inputs, sort_keys=True)))
+    assert len(call_keys) == len(set(call_keys))
+
+
+def test_phase2_time_budget_escalates():
+    registry = _registry()
+    investigator = ForensicInvestigator(
+        registry,
+        gemini_client=GeminiClient(api_key=""),
+        max_steps=5,
+        max_seconds=0.0,
+    )
+    lead = Lead(
+        lead_id="LEAD-CYCLE-TX-ROOT-001",
+        entity_id="012180000000000001",
+        detector_id="DET-ROUND-TRIP-CYCLE",
+        reason="Circular fund movement",
+        risk_score=0.95,
+        status=LeadStatus.OPEN,
+    )
+    case, steps, _evidence = investigator.investigate(lead)
+    assert any(s.tool == "time_budget_guard" for s in steps)
+    assert any(s.decision == StepDecision.ESCALATE for s in steps)
+    assert case.status == "INSUFFICIENT_EVIDENCE"
+
+
+def test_phase2_invalid_gemini_args_keep_deterministic_plan():
+    from truelock.agent.gemini_client import GeminiResponse
+
+    class InvalidArgsGemini(GeminiClient):
+        def __init__(self) -> None:
+            super().__init__(api_key="fake-key-for-tests")
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        def generate(self, prompt, system_instruction=None, tools=None):
+            return GeminiResponse(
+                function_call={
+                    "name": "trace_outgoing_funds",
+                    "args": {"depth": 3},  # missing account_id
+                },
+                is_fallback=False,
+                model="mock-invalid",
+            )
+
+    registry = _registry()
+    investigator = ForensicInvestigator(
+        registry, gemini_client=InvalidArgsGemini(), max_steps=5
+    )
+    lead = Lead(
+        lead_id="LEAD-CYCLE-TX-ROOT-001",
+        entity_id="012180000000000001",
+        detector_id="DET-ROUND-TRIP-CYCLE",
+        reason="Circular fund movement",
+        risk_score=0.95,
+        status=LeadStatus.OPEN,
+    )
+    case, steps, evidence = investigator.investigate(lead)
+    assert case.status == "SUBSTANTIATED"
+    assert any("gemini_invalid_args" in s.reason for s in steps)
+    assert steps[0].inputs.get("account_id") == "012180000000000001"
+    assert "TX-ROOT-001" in {e.source_id for e in evidence}
+
+
+def test_phase2_repeated_call_escalates():
+    from truelock.agent.gemini_client import GeminiResponse
+
+    class StickyTraceGemini(GeminiClient):
+        def __init__(self) -> None:
+            super().__init__(api_key="fake-key")
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        def generate(self, prompt, system_instruction=None, tools=None):
+            # Always propose the same valid trace call → second turn repeats.
+            return GeminiResponse(
+                function_call={
+                    "name": "trace_outgoing_funds",
+                    "args": {"account_id": "012180000000000001", "max_depth": 3},
+                },
+                is_fallback=False,
+                model="mock-sticky",
+            )
+
+    registry = _registry()
+    investigator = ForensicInvestigator(
+        registry, gemini_client=StickyTraceGemini(), max_steps=5
+    )
+    lead = Lead(
+        lead_id="LEAD-CYCLE-TX-ROOT-001",
+        entity_id="012180000000000001",
+        detector_id="DET-ROUND-TRIP-CYCLE",
+        reason="Circular fund movement",
+        risk_score=0.95,
+        status=LeadStatus.OPEN,
+    )
+    case, steps, _evidence = investigator.investigate(lead)
+    assert any(s.decision == StepDecision.ESCALATE for s in steps)
+    assert any("Repeated tool call" in s.reason for s in steps)
     assert case.status == "INSUFFICIENT_EVIDENCE"
 
 

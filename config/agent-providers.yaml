@@ -3,6 +3,8 @@
 # never attempts to circumvent provider quotas or billing controls — it
 # only chooses among projects/providers the team already has budget for.
 # See docs/decisions.md and docs/architecture.md.
+#
+# Runtime loads config/agent-providers.json (kept in sync with this file).
 
 providers:
   - id: gemini-project-a

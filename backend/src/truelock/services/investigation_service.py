@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from threading import Lock
+
 from truelock.agent.gemini_client import GeminiClient
 from truelock.agent.investigator import ForensicInvestigator
 from truelock.agent.tools import ToolRegistry
@@ -25,81 +27,104 @@ class InvestigationService:
         self.database = database
         self.repo = repo if repo is not None else (None if database else load_demo_scenario())
         self.gemini = gemini_client or GeminiClient()
-        if database:
-            # Database records are the application source of truth.  In-memory
-            # repositories remain available only to focused unit tests.
-            self.detector = None
-            self.tools = None
-            self.investigator = None
-            self._leads = {}
-            self._cases = {}
-            self._steps = {}
-            self._evidence = {}
-            return
+
+        data = database if database is not None else self.repo
+        assert data is not None
         self.detector = DetectionEngine(
-            entities=self.repo.entities,
-            providers=self.repo.providers,
-            accounts=self.repo.accounts,
-            transactions=self.repo.transactions,
-            invoices=self.repo.invoices,
-            payments=self.repo.payments,
+            entities=data.entities,
+            providers=data.providers,
+            accounts=data.accounts,
+            transactions=data.transactions,
+            invoices=data.invoices,
+            payments=data.payments,
         )
         self.tools = ToolRegistry(
-            entities=self.repo.entities,
-            providers=self.repo.providers,
-            accounts=self.repo.accounts,
-            transactions=self.repo.transactions,
-            invoices=self.repo.invoices,
-            payments=self.repo.payments,
+            entities=data.entities,
+            providers=data.providers,
+            accounts=data.accounts,
+            transactions=data.transactions,
+            invoices=data.invoices,
+            payments=data.payments,
         )
         self.investigator = ForensicInvestigator(self.tools, self.gemini)
 
-        # In-memory persistence for demo session
         self._leads: dict[str, Lead] = {}
         self._cases: dict[str, Case] = {}
         self._steps: dict[str, list[InvestigationStep]] = {}
         self._evidence: dict[str, list[Evidence]] = {}
+        self._lead_locks: dict[str, Lock] = {}
+        self._locks_guard = Lock()
 
-        # Populate initial leads
-        self.refresh_leads()
+        if database is None:
+            # Memory demos stay empty until Load demo / inject explicitly fills data.
+            pass
+
+    def _lock_for_lead(self, lead_id: str) -> Lock:
+        with self._locks_guard:
+            if lead_id not in self._lead_locks:
+                self._lead_locks[lead_id] = Lock()
+            return self._lead_locks[lead_id]
 
     def refresh_leads(self) -> list[Lead]:
-        if self.database:
-            return self.database.list_lead_records()  # type: ignore[return-value]
         leads = self.detector.run_all()
+        if self.database:
+            return self.database.upsert_detector_leads(leads)
         for lead in leads:
             self._leads[lead.lead_id] = lead
         return list(self._leads.values())
 
     def list_leads(self) -> list[Lead]:
         if self.database:
-            return self.database.list_lead_records()  # type: ignore[return-value]
-        if not self._leads:
-            self.refresh_leads()
+            return self.database.list_lead_records()
         return list(self._leads.values())
 
     def get_lead(self, lead_id: str) -> Lead | None:
         if self.database:
-            return self.database.get_lead_record(lead_id)  # type: ignore[return-value]
+            lead = self.database.get_lead_record(lead_id)
+            if lead:
+                return lead
+            for item in self.refresh_leads():
+                if item.lead_id == lead_id:
+                    return item
+            return None
         return self._leads.get(lead_id)
 
     def start_investigation(self, lead_id: str) -> dict[str, Any]:
+        """Execute bounded investigation on a lead (serialized per lead_id)."""
+        with self._lock_for_lead(lead_id):
+            return self._start_investigation_unlocked(lead_id)
+
+    def _start_investigation_unlocked(self, lead_id: str) -> dict[str, Any]:
         """Execute bounded investigation on a lead."""
         if self.database:
-            existing = self.database.existing_investigation_for_lead(lead_id)
-            if not existing:
-                raise ValueError(
-                    "No persisted investigation exists for this lead. "
-                    "Run the detector/investigation worker before requesting its case file."
-                )
-            return existing
+            fingerprint = self.database.dataset_fingerprint()
+            existing = self.database.existing_investigation_for_lead(
+                lead_id, dataset_fingerprint=fingerprint
+            )
+            if existing:
+                return existing
+
+            lead = self.get_lead(lead_id)
+            if not lead:
+                raise ValueError(f"Lead {lead_id} not found")
+
+            case, steps, evidence = self.investigator.investigate(lead)
+            idempotency_key = f"{fingerprint}:{lead.lead_id}"
+            return self.database.persist_investigation_result(
+                lead=lead,
+                case=case,
+                steps=steps,
+                evidence=evidence,
+                idempotency_key=idempotency_key,
+                dataset_fingerprint=fingerprint,
+            )
+
         lead = self.get_lead(lead_id)
         if not lead:
             raise ValueError(f"Lead {lead_id} not found")
 
         case, steps, evidence = self.investigator.investigate(lead)
 
-        # Update lead status
         lead_dict = lead.to_dict()
         lead_dict["status"] = LeadStatus.FOLLOWED.value
         self._leads[lead_id] = Lead.parse(lead_dict)

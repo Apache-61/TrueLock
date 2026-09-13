@@ -7,7 +7,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-truelock_dev_only}
       POSTGRES_DB: truelock
     ports:
-      - "5432:5432"
+      # Host 5433 avoids clashing with a local Windows PostgreSQL on 5432.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,6 +16,20 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  migrate:
+    profiles: ["app"]
+    image: postgres:16-alpine
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    environment:
+      DATABASE_URL: postgresql://truelock:${POSTGRES_PASSWORD:-truelock_dev_only}@postgres:5432/truelock
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache bash >/dev/null && bash scripts/migrate.sh && bash scripts/seed_demo.sh"]
+    restart: "no"
 
   backend:
     profiles: ["app"]
@@ -26,10 +41,60 @@ services:
     environment:
       DATABASE_URL: postgresql://truelock:${POSTGRES_PASSWORD:-truelock_dev_only}@postgres:5432/truelock
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_KEY_A: ${GEMINI_KEY_A:-${GEMINI_API_KEY:-}}
+      GEMINI_KEY_B: ${GEMINI_KEY_B:-}
+      GEMINI_KEY_C: ${GEMINI_KEY_C:-}
+      GEMINI_KEY_D: ${GEMINI_KEY_D:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      HARD_BUDGET_STOP_USD: ${HARD_BUDGET_STOP_USD:-280}
+      TRUELOCK_PROVIDERS_CONFIG: /app/config/agent-providers.json
+    volumes:
+      - ./config:/app/config:ro
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "http://127.0.0.1:3000/",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   postgres_data:

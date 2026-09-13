@@ -1,0 +1,12 @@
+{
+  "fixture_id": "cfdi-valid-invoice",
+  "path": "data/fixtures/cfdi/valid_invoice.xml",
+  "expected": {
+    "accepted": 1,
+    "rejected": 0,
+    "uuid": "11111111-2222-3333-4444-555555555555",
+    "amount_mxn": 1000000.0,
+    "provider_rfc": "CPR190515BB2",
+    "receiver_rfc": "EDE180101AA1"
+  }
+}

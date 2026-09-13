@@ -21,29 +21,42 @@ observed fact ≠ anomaly ≠ hypothesis ≠ lead ≠ evidence ≠ inference ≠
 | Inference | `investigation_step.decision` + reasoning | "This payment pattern is consistent with layering" |
 | Conclusion | `domain/schemas/case.schema.json` | "SUBSTANTIATED: circular movement of funds, 1,842,000 MXN" |
 
-## Loop
+## Loop (Fase 2)
 
 ```
-1. Lead selected (highest risk_score among OPEN leads)
-2. Agent chooses a tool from docs/contracts/agent-tools.md, states why
-3. Tool executes (read-only), returns result + provenance
-4. Agent records an InvestigationStep with a decision:
-     FOLLOW    -> go to 2 with a new sub-question
-     DISCARD   -> stop this branch; if no branch remains, discard the Lead
-     ESCALATE  -> flag for human review, pause this Lead
-     CONCLUDE  -> enough evidence exists; hand off to evidence/ for Case assembly
-5. Every FOLLOW must add at least one new Evidence record or narrow the
-   hypothesis - a step that produces neither is a bug (infinite-loop risk)
+1. Lead selected
+2. Select next action (deterministic plan; Gemini may propose an override)
+3. Validate args against docs/contracts/agent-tools.md
+   - invalid Gemini args → keep deterministic plan and record audit note
+   - invalid final args → ESCALATE (never execute)
+4. Execute tool (read-only) via ToolRegistry → envelope + provenance
+5. Reduce: update context, materialize Evidence, store full result hash
+6. Decide:
+     FOLLOW    -> go to 2 only if new sources/evidence OR narrowed hypothesis
+     DISCARD   -> empty trail / no remaining productive branch
+     ESCALATE  -> repeated call, repeated result hash, tool error,
+                  step budget, or time budget
+     CONCLUDE  -> enough evidence; hand off to case assembly
 ```
+
+Gemini and the offline fallback share steps 3–6. The fallback never emits
+a partial `function_call`; it selects the deterministic plan and runs it
+through the same validator and dispatcher.
+
+## Progress rule
+
+Every `FOLLOW` must add at least one new Evidence record / `source_id` or
+narrow the hypothesis. A step that produces neither is a protocol bug and
+must terminate with `ESCALATE`.
 
 ## Termination guarantees
 
-- **Hop limits** on graph-traversal tools (`max_hops` in
-  `docs/contracts/agent-tools.md`) bound how far money-tracing can go per
-  call.
-- **Step budget per Lead** (implementation detail of `agent/runtime/`,
-  document the chosen number once set) — if exceeded, the loop forces
-  `ESCALATE`, never silently stops without a recorded reason.
+- **Hop limits** on graph-traversal tools (`max_depth`, default 3, cap 5)
+  bound how far money-tracing can go per call.
+- **Step budget** (`MAX_INVESTIGATION_STEPS`, default 10) — if exceeded,
+  the loop forces `ESCALATE` via `step_budget_guard` with a recorded reason.
+- **Time budget** (`MAX_INVESTIGATION_SECONDS`, default 30) — if exceeded,
+  the loop forces `ESCALATE` via `time_budget_guard` with elapsed time.
 - **No Lead re-opens itself.** A `DISCARDED` Lead stays discarded; a new
   detector run can create a *new* Lead referencing the same entity if new
   signals appear.

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { askQuestion } from "../lib/api";
+import { canAskQuestion, formatEvidenceRefs } from "../lib/investigationUi.mjs";
 
 interface Props {
   caseId: string | null;
@@ -11,18 +12,21 @@ export function JudgeQAPanel({ caseId }: Props) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const [evidenceRefs, setEvidenceRefs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleAsk = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!caseId || !question.trim()) return;
+    if (!canAskQuestion(caseId, question, loading)) return;
 
     setLoading(true);
     setAnswer(null);
+    setEvidenceRefs([]);
     try {
-      const res = await askQuestion(caseId, question);
+      const res = await askQuestion(caseId as string, question);
       setAnswer(res.answer);
       setModel(res.model);
+      setEvidenceRefs(res.evidence_refs || []);
     } catch (err: unknown) {
       setAnswer(`Error asking question: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -48,7 +52,7 @@ export function JudgeQAPanel({ caseId }: Props) {
         />
         <button
           type="submit"
-          disabled={!caseId || loading || !question.trim()}
+          disabled={!canAskQuestion(caseId, question, loading)}
           style={{
             padding: "8px 16px",
             background: "#3b82f6",
@@ -65,8 +69,11 @@ export function JudgeQAPanel({ caseId }: Props) {
           <div style={{ fontSize: "0.75rem", color: "#38bdf8", marginBottom: "0.4rem" }}>
             Response (Model: {model})
           </div>
-          <p style={{ margin: 0, fontSize: "0.85rem", color: "#e2e8f0", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+          <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.85rem", color: "#e2e8f0", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
             {answer}
+          </p>
+          <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
+            {formatEvidenceRefs(evidenceRefs)}
           </p>
         </div>
       )}

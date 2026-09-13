@@ -1,0 +1,32 @@
+{
+  "corpus_id": "train_cycle_dedup_alt",
+  "scenario_id": "cycle_dedup",
+  "dataset": "cycle_dedup",
+  "input_lead": {
+    "detector_id": "DET-ROUND-TRIP-CYCLE",
+    "entity_id": "A1",
+    "risk_score": 0.9
+  },
+  "allowed_tools": [
+    "trace_outgoing_funds",
+    "inspect_counterparties",
+    "calculate_exposure",
+    "get_payment_details"
+  ],
+  "expected_trail": ["TX-C1", "TX-C2", "TX-C3"],
+  "minimum_evidence": [
+    { "source_id": "TX-C1", "type": "TRANSACTION" },
+    { "source_id": "TX-C2", "type": "TRANSACTION" }
+  ],
+  "expected_terminal_decision": "CONCLUDE",
+  "expected_case_status": "SUBSTANTIATED",
+  "expected_amount_involved": 100000.0,
+  "audit_questions": [
+    {
+      "question": "Which transfers form the alternate three-hop cycle?",
+      "must_include_evidence_refs": true,
+      "acceptable_source_ids": ["TX-C1", "TX-C2", "TX-C3"]
+    }
+  ],
+  "notes": "Train-only entities A1/A2/A3 — must not overlap blocked eval TX-ROOT cycle."
+}

@@ -1,0 +1,13 @@
+{
+  "scenario_id": "efos_negative_no_accusation",
+  "detector_id": "69B_CORRELATION",
+  "expected_leads": [
+    {
+      "detector_id": "69B_CORRELATION",
+      "max_risk_score": 0.59,
+      "must_not_accuse": true,
+      "note": "EFOS listing alone is contextual; pursue threshold is 0.60"
+    }
+  ],
+  "forbidden_detectors": ["SHELL_NETWORK"]
+}

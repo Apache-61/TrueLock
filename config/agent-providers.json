@@ -1,0 +1,32 @@
+{
+  "providers": [
+    {
+      "id": "gemini-project-a",
+      "provider": "google",
+      "key_env": "GEMINI_KEY_A",
+      "fallback_env": "GEMINI_API_KEY",
+      "max_session_budget_usd": 75
+    },
+    {
+      "id": "gemini-project-b",
+      "provider": "google",
+      "key_env": "GEMINI_KEY_B",
+      "max_session_budget_usd": 75
+    },
+    {
+      "id": "gemini-project-c",
+      "provider": "google",
+      "key_env": "GEMINI_KEY_C",
+      "max_session_budget_usd": 75
+    },
+    {
+      "id": "gemini-project-d",
+      "provider": "google",
+      "key_env": "GEMINI_KEY_D",
+      "max_session_budget_usd": 75
+    }
+  ],
+  "hard_budget_stop_usd": 280,
+  "estimated_cost_per_call_usd": 0.002,
+  "notes": "Human-readable twin: config/agent-providers.yaml. Runtime loads this JSON."
+}

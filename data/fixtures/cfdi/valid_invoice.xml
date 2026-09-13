@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4"
+  Version="4.0" Fecha="2026-08-01T08:00:00" Total="1000000.00" SubTotal="862068.97"
+  Moneda="MXN" MetodoPago="PUE" FormaPago="03" TipoDeComprobante="I">
+  <cfdi:Emisor Rfc="CPR190515BB2" Nombre="Constructora e Infraestructura Primaria SA de CV"/>
+  <cfdi:Receptor Rfc="EDE180101AA1" Nombre="Empresa Operadora Nacional SA de CV"/>
+  <cfdi:Conceptos>
+    <cfdi:Concepto Descripcion="Infraestructura y obra civil"/>
+  </cfdi:Conceptos>
+  <cfdi:Impuestos TotalImpuestosTrasladados="137931.03"/>
+  <cfdi:Complemento>
+    <tfd:TimbreFiscalDigital xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital"
+      UUID="11111111-2222-3333-4444-555555555555"/>
+  </cfdi:Complemento>
+</cfdi:Comprobante>

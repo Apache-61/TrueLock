@@ -1,0 +1,12 @@
+{
+  "fixture_id": "efos-valid-69b",
+  "path": "data/fixtures/efos/valid_69b.csv",
+  "expected": {
+    "accepted": 1,
+    "rejected": 0,
+    "rfc": "LSF200820CC3",
+    "status": "DEFINITIVO",
+    "contextual_only": true,
+    "must_not_change_case_fraud_status": true
+  }
+}

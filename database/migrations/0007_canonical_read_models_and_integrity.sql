@@ -248,6 +248,10 @@ SELECT
     s.action,
     s.tool_name,
     s.reason_summary,
+    s.tool_inputs,
+    s.result_summary,
+    s.provenance,
+    s.errors,
     s.decision,
     s.started_at,
     s.completed_at,
@@ -260,7 +264,8 @@ FROM truelock.investigation_steps s
 LEFT JOIN truelock.investigation_step_input_evidence ie ON ie.step_id = s.step_id
 LEFT JOIN truelock.investigation_step_result_evidence re ON re.step_id = s.step_id
 GROUP BY s.case_id, s.investigation_id, s.thread_id, s.step_id, s.sequence,
-         s.action, s.tool_name, s.reason_summary, s.decision,
+         s.action, s.tool_name, s.reason_summary, s.tool_inputs, s.result_summary,
+         s.provenance, s.errors, s.decision,
          s.started_at, s.completed_at, s.duration_ms;
 
 CREATE VIEW truelock.v_money_trail AS

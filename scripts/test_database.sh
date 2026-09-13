@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${DATABASE_URL:?DATABASE_URL is required}"
+# shellcheck source=scripts/_psql_env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_psql_env.sh"
 
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 --single-transaction \
+"${PSQL[@]}" -v ON_ERROR_STOP=1 --single-transaction \
   -f database/tests/001_demo_invariants.sql

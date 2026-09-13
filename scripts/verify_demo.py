@@ -65,11 +65,37 @@ def main() -> None:
     )
     print("[OK] Investigation loop verified (real trail, exposure, case substantiated)")
 
+    # 4b. Fase 2 orchestration invariants
+    tool_names = [s["tool"] for s in res["steps"]]
+    assert len(tool_names) == len(set(tool_names)) or tool_names.count(
+        "trace_outgoing_funds"
+    ) == 1, "Must not repeat equivalent tool calls"
+    decisions = {s["decision"] for s in res["steps"]}
+    assert "CONCLUDE" in decisions, "Cycle investigation must end with CONCLUDE"
+    for step in res["steps"]:
+        if step["tool"] in (
+            "trace_outgoing_funds",
+            "inspect_counterparties",
+            "check_regulatory_status",
+            "calculate_exposure",
+            "inspect_invoices",
+        ):
+            hashes = [r for r in step.get("result_refs", []) if str(r).startswith("HASH:")]
+            assert hashes, f"Step {step['step_id']} missing HASH result_ref"
+            digest = str(hashes[0]).removeprefix("HASH:")
+            assert len(digest) == 64, "Result hash must be full SHA-256"
+            assert any(
+                not str(r).startswith("HASH:") for r in step.get("result_refs", [])
+            ), "result_refs must include recoverable domain IDs"
+    print("[OK] Orchestration invariants verified (no duplicates, full hashes, CONCLUDE)")
+
     # 5. Control lead must not be substantiated as fraud
     control_res = service.start_investigation(control_leads[0].lead_id)
     assert control_res["case"]["status"] != "SUBSTANTIATED", (
         "Control shared-address lead must not be substantiated"
     )
+    control_decisions = {s["decision"] for s in control_res["steps"]}
+    assert "DISCARD" in control_decisions or control_res["case"]["status"] == "UNSUBSTANTIATED"
     print("[OK] Control lead correctly unsubstantiated")
 
     print("\nALL INVARIANTS VERIFIED SUCCESSFULLY.")

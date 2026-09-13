@@ -1,0 +1,38 @@
+{
+  "corpus_id": "round_trip_cycle_p0",
+  "scenario_id": "SCENARIO-P0-ROUND-TRIP",
+  "input_lead": {
+    "lead_id": "LEAD-CYCLE-TX-ROOT-001",
+    "detector_id": "DET-ROUND-TRIP-CYCLE",
+    "entity_id": "012180000000000001",
+    "risk_score": 0.98
+  },
+  "allowed_tools": [
+    "trace_outgoing_funds",
+    "inspect_counterparties",
+    "check_regulatory_status",
+    "calculate_exposure",
+    "get_invoice_details",
+    "get_payment_details"
+  ],
+  "expected_trail": ["TX-ROOT-001", "TX-HOP-001", "TX-RET-001"],
+  "minimum_evidence": [
+    { "source_id": "TX-ROOT-001", "type": "TRANSACTION" },
+    { "source_id": "TX-HOP-001", "type": "TRANSACTION" }
+  ],
+  "expected_terminal_decision": "CONCLUDE",
+  "expected_case_status": "SUBSTANTIATED",
+  "expected_amount_involved": 1000000.0,
+  "audit_questions": [
+    {
+      "question": "What bank movements support the round-trip?",
+      "must_include_evidence_refs": true,
+      "acceptable_source_ids": ["TX-ROOT-001", "TX-HOP-001", "TX-RET-001"]
+    },
+    {
+      "question": "Why is the shared Reforma address not fraud?",
+      "must_include_evidence_refs": false,
+      "expected_theme": "insufficient_linkage_or_control_discard"
+    }
+  ]
+}

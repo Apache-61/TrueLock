@@ -12,6 +12,11 @@
     "to_account": { "type": "string" },
     "transaction_date": { "type": "string", "format": "date" },
     "amount": { "type": "number" },
-    "related_payment_id": { "type": ["string", "null"] }
+    "related_payment_id": { "type": ["string", "null"] },
+    "booked_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Optional timestamp for temporal detectors. When null, detectors use noon UTC on transaction_date."
+    }
   }
 }

@@ -1,0 +1,26 @@
+{
+  "corpus_id": "shared_address_control",
+  "scenario_id": "SCENARIO-P0-ROUND-TRIP",
+  "input_lead": {
+    "lead_id": "LEAD-CONTROL-SHARED-ADDRESS",
+    "detector_id": "DET-SHARED-ADDRESS-CONTROL",
+    "entity_id": "ENT-VENDOR-CONTROL-A",
+    "risk_score": 0.35
+  },
+  "allowed_tools": [
+    "inspect_counterparties",
+    "check_regulatory_status",
+    "trace_outgoing_funds"
+  ],
+  "expected_trail": [],
+  "minimum_evidence": [],
+  "expected_terminal_decision": "DISCARD",
+  "expected_case_status": "UNSUBSTANTIATED",
+  "audit_questions": [
+    {
+      "question": "Does a shared commercial address prove economic linkage?",
+      "must_include_evidence_refs": false,
+      "expected_theme": "no_fund_link_distinct_rfcs"
+    }
+  ]
+}

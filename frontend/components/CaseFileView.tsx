@@ -66,11 +66,24 @@ export function CaseFileView({ caseFile }: Props) {
         <div>
           <strong style={{ color: "#94a3b8" }}>Limitations & Caveats:</strong>
           <ul style={{ margin: "0.2rem 0 0 0", paddingLeft: "1.2rem", color: "#94a3b8" }}>
-            {caseFile.limitations.map((lim, i) => (
+            {(caseFile.limitations || []).map((lim, i) => (
               <li key={i}>{lim}</li>
             ))}
           </ul>
         </div>
+
+        {(caseFile.discarded_leads || []).length > 0 && (
+          <div>
+            <strong style={{ color: "#94a3b8" }}>Discarded Leads:</strong>
+            <ul style={{ margin: "0.2rem 0 0 0", paddingLeft: "1.2rem", color: "#94a3b8" }}>
+              {caseFile.discarded_leads.map((item) => (
+                <li key={item.lead_id}>
+                  <code>{item.lead_id}</code>: {item.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

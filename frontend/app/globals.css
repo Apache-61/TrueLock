@@ -34,3 +34,174 @@ input, textarea {
   border-radius: 6px;
   padding: 8px 12px;
 }
+
+/* ---- Docs site (/docs) ---- */
+.docs-shell {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.docs-sidebar {
+  border-right: 1px solid var(--border-color);
+  background: #0d121c;
+  padding: 1.25rem 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow: auto;
+}
+
+.docs-brand a {
+  color: #38bdf8;
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+
+.docs-muted {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0;
+}
+
+.docs-nav-group {
+  margin-bottom: 1rem;
+}
+
+.docs-nav-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.4rem;
+}
+
+.docs-nav-link {
+  display: block;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+}
+
+.docs-nav-link:hover {
+  background: #1a2438;
+  color: #fff;
+}
+
+.docs-ports {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  border-top: 1px solid var(--border-color);
+  padding-top: 0.85rem;
+  line-height: 1.45;
+}
+
+.docs-back {
+  display: inline-block;
+  margin-top: auto;
+  color: #5eead4;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.docs-main {
+  padding: 2rem clamp(1.25rem, 4vw, 3rem) 3rem;
+  max-width: 920px;
+}
+
+.docs-markdown h1,
+.docs-markdown h2,
+.docs-markdown h3 {
+  color: #e2e8f0;
+  line-height: 1.25;
+}
+
+.docs-markdown h1 {
+  font-size: 1.85rem;
+  margin-top: 0;
+}
+
+.docs-markdown h2 {
+  font-size: 1.35rem;
+  margin-top: 2rem;
+  border-bottom: 1px solid #1f2a3f;
+  padding-bottom: 0.35rem;
+}
+
+.docs-markdown p,
+.docs-markdown li {
+  color: #cbd5e1;
+  line-height: 1.65;
+}
+
+.docs-markdown a {
+  color: #38bdf8;
+}
+
+.docs-markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  background: #1a2438;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.docs-markdown pre {
+  background: #0d131f;
+  border: 1px solid #232d42;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow: auto;
+}
+
+.docs-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.docs-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.docs-markdown th,
+.docs-markdown td {
+  border: 1px solid #232d42;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.docs-markdown th {
+  background: #121824;
+  color: #e2e8f0;
+}
+
+.docs-markdown blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid #38bdf8;
+  color: #94a3b8;
+  background: #121824;
+}
+
+@media (max-width: 860px) {
+  .docs-shell {
+    grid-template-columns: 1fr;
+  }
+  .docs-sidebar {
+    position: relative;
+    max-height: none;
+  }
+}

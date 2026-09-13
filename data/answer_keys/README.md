@@ -1,16 +1,18 @@
 # data/answer_keys/
 
-**Purpose:** the expected output (leads, path, evidence, amount,
-conclusion, discarded leads — `docs/testing.md`) for each
-`data/synthetic/` scenario. This is ground truth used **only** by test
-code and the team, after a demo run, to score the agent — never read by
-`agent/`, `detection/`, `backend/`, or `frontend/` at runtime.
+**Purpose:** expected outputs for fixtures and synthetic scenarios — used
+**only** by tests and humans scoring a demo, never by runtime agent code.
 
-**What goes here:** `scenario-*.json` matching each synthetic scenario's
-ID, in the shape described in `docs/testing.md` §Scenario regression.
+**What goes here:**
+- `demo_scenario_answer_key.json` — canonical `$1M → $920k → $740k` cycle
+- `cfdi_valid_answer_key.json`, `bank_cycle_answer_key.json`,
+  `efos_69b_answer_key.json` — Fase 3 import fixture expectations
+- `hidden_pass_through_answer_key.json` — judge injection (Fase 4)
+- Detector regression keys (Fase 5): `duplicate_invoice_`, `unusual_amount_`,
+  `invoice_payment_mismatch_`, `fan_in_`, `fan_out_`, `pass_through_temporal_`,
+  `circular_flow_dedup_`, `efos_negative_no_accusation_`
 
-**What does not go here:** anything the running system reads. If a module
-under `agent/`, `backend/`, or `frontend/` ever imports from this
-directory, that's a bug — it defeats the point of a hidden-fraud demo.
+Agent evaluation packs live under `data/eval_corpus/` (also offline-only).
 
-**Depends on:** `data/synthetic/`.
+**What does not go here:** anything imported by `agent/`, `detection/`,
+`backend/`, or `frontend/` at runtime.

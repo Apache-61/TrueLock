@@ -1,0 +1,5 @@
+# Force LF for shell scripts (WSL/Git Bash choke on CRLF).
+*.sh text eol=lf
+database/migrations/*.sql text eol=lf
+database/seeds/*.sql text eol=lf
+database/tests/*.sql text eol=lf

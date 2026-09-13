@@ -1,0 +1,29 @@
+{
+  "corpus_id": "concentration_risk_control",
+  "scenario_id": "supplier_concentration_positive",
+  "dataset": "supplier_concentration_positive",
+  "input_lead": {
+    "detector_id": "SUPPLIER_CONCENTRATION",
+    "entity_id": "ENT-TOP",
+    "risk_score": 0.55
+  },
+  "allowed_tools": [
+    "inspect_counterparties",
+    "check_regulatory_status",
+    "calculate_exposure",
+    "get_invoice_details"
+  ],
+  "expected_trail": [],
+  "minimum_evidence": [],
+  "expected_terminal_decision": "",
+  "expected_case_status": null,
+  "expected_amount_involved": null,
+  "audit_questions": [
+    {
+      "question": "Is vendor concentration alone proof of fraud?",
+      "must_include_evidence_refs": false,
+      "expected_theme": "concentration_is_risk_signal_not_proof"
+    }
+  ],
+  "notes": "Train practice — concentration is a risk signal; do not require SUBSTANTIATED."
+}

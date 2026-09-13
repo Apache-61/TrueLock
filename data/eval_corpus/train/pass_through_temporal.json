@@ -1,0 +1,29 @@
+{
+  "corpus_id": "train_pass_through_temporal",
+  "scenario_id": "pass_through_temporal_positive",
+  "dataset": "pass_through_temporal_positive",
+  "input_lead": {
+    "detector_id": "DET-RAPID-PASS-THROUGH",
+    "entity_id": "ACC-PT",
+    "risk_score": 0.88
+  },
+  "allowed_tools": [
+    "trace_outgoing_funds",
+    "inspect_counterparties",
+    "calculate_exposure",
+    "get_invoice_details"
+  ],
+  "expected_trail": [],
+  "minimum_evidence": [],
+  "expected_terminal_decision": "",
+  "expected_case_status": null,
+  "expected_amount_involved": null,
+  "audit_questions": [
+    {
+      "question": "What timed transfers show the rapid pass-through?",
+      "must_include_evidence_refs": false,
+      "acceptable_source_ids": ["TX-PT-IN", "TX-PT-OUT"]
+    }
+  ],
+  "notes": "Train temporal pass-through. Soft gates until live Gemini improves trail coverage."
+}
