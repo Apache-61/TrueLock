@@ -6,9 +6,13 @@ from starlette.testclient import TestClient
 from truelock.api.app import create_app
 
 
+def _client() -> TestClient:
+    # Unit tests exercise the in-memory demo path even when CI exports DATABASE_URL.
+    return TestClient(create_app(use_database=False))
+
+
 def test_health_check_endpoint():
-    app = create_app()
-    client = TestClient(app)
+    client = _client()
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
@@ -17,8 +21,7 @@ def test_health_check_endpoint():
 
 
 def test_list_leads_endpoint():
-    app = create_app()
-    client = TestClient(app)
+    client = _client()
     response = client.get("/api/leads")
     assert response.status_code == 200
     leads = response.json()
@@ -27,8 +30,7 @@ def test_list_leads_endpoint():
 
 
 def test_start_investigation_and_qa_flow():
-    app = create_app()
-    client = TestClient(app)
+    client = _client()
 
     # Get a lead
     leads_resp = client.get("/api/leads")

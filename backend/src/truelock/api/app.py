@@ -23,7 +23,12 @@ class QuestionRequest(BaseModel):
     question: str
 
 
-def create_app() -> FastAPI:
+def create_app(*, use_database: bool | None = None) -> FastAPI:
+    """Create the FastAPI application.
+
+    ``use_database`` overrides persistence selection for tests. When omitted,
+    PostgreSQL is used only if ``settings.database_enabled`` is true.
+    """
     app = FastAPI(
         title="TrueLock Forensic Auditor API",
         version="0.1.0",
@@ -39,7 +44,12 @@ def create_app() -> FastAPI:
     )
 
     gemini_client = GeminiClient()
-    database = PostgresRepositories(settings.database_url) if settings.database_enabled else None
+    enable_database = settings.database_enabled if use_database is None else use_database
+    database = (
+        PostgresRepositories(settings.database_url)
+        if enable_database and settings.database_url.strip()
+        else None
+    )
     investigation_service = InvestigationService(gemini_client=gemini_client, database=database)
     case_service = CaseService(gemini_client=gemini_client)
 
@@ -161,4 +171,26 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
+class _LazyASGIApp:
+    """Defer ``create_app()`` until the first ASGI call or attribute access.
+
+    Importing this module (for ``create_app`` in unit tests) must not open a
+    PostgreSQL pool merely because CI exports ``DATABASE_URL``.
+    """
+
+    def __init__(self) -> None:
+        self._app: FastAPI | None = None
+
+    def _ensure(self) -> FastAPI:
+        if self._app is None:
+            self._app = create_app()
+        return self._app
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._ensure(), name)
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        await self._ensure()(scope, receive, send)
+
+
+app = _LazyASGIApp()

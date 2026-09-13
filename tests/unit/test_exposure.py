@@ -84,3 +84,62 @@ def test_stable_evidence_source_hash():
 
     assert ev1.record_hash == ev2.record_hash
 
+
+def test_exposure_invariant_to_additional_downstream_hops():
+    """Adding hop amounts must not increase supported exposure."""
+    base = ExposureCalculator.calculate_root_flow_exposure(
+        root_flow_id="TX-ROOT-001",
+        root_amount=1_000_000.0,
+        downstream_transfers=[920_000.0],
+        returned_amount=740_000.0,
+    )
+    with_extra_hops = ExposureCalculator.calculate_root_flow_exposure(
+        root_flow_id="TX-ROOT-001",
+        root_amount=1_000_000.0,
+        downstream_transfers=[920_000.0, 500_000.0, 100_000.0],
+        returned_amount=740_000.0,
+    )
+    assert base.supported_exposure == 1_000_000.0
+    assert with_extra_hops.supported_exposure == 1_000_000.0
+    assert with_extra_hops.supported_exposure == base.supported_exposure
+    assert with_extra_hops.net_exposure == 260_000.0
+    assert with_extra_hops.downstream_flow == 1_520_000.0
+    assert with_extra_hops.policy_applied == "ROOT_FLOW_UNDUPLICATED_WITH_RETURN_OFFSET"
+
+
+def test_finding_admissibility_requires_direct_evidence_for_supported():
+    """Corroborating + circumstantial alone cannot yield SUPPORTED."""
+    collector = EvidenceCollector()
+    collector.add_record(
+        "EVD-REL",
+        EvidenceType.RELATIONSHIP,
+        "ENTITY_REGISTRY",
+        "CPR190515BB2",
+        "Counterparty resolved",
+        EvidenceStrength.CORROBORATING,
+        {"rfc": "CPR190515BB2"},
+    )
+    collector.add_record(
+        "EVD-EFOS",
+        EvidenceType.REGULATORY_STATUS,
+        "SAT_69B",
+        "EFOS:LSF200820CC3",
+        "EFOS definitive",
+        EvidenceStrength.CIRCUMSTANTIAL,
+        {"status": "DEFINITIVE"},
+    )
+    finding = collector.evaluate_finding("FINDING-X", "LEAD-X", "Incomplete trail")
+    assert finding.outcome == Outcome.INSUFFICIENT_EVIDENCE
+
+    collector.add_record(
+        "EVD-TX",
+        EvidenceType.TRANSACTION,
+        "BANK_RECORD",
+        "TX-ROOT-001",
+        "Root payment 1,000,000 MXN",
+        EvidenceStrength.DIRECT,
+        {"id": "TX-ROOT-001", "amount": 1_000_000.0},
+    )
+    finding2 = collector.evaluate_finding("FINDING-Y", "LEAD-Y", "Trail confirmed")
+    assert finding2.outcome == Outcome.SUPPORTED
+

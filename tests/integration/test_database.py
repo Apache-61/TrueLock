@@ -40,7 +40,11 @@ def test_migrations_seed_and_sql_invariants() -> None:
     seed_second = _run(["bash", "scripts/seed_demo.sh"], database_url)
     invariants = _run(["bash", "scripts/test_database.sh"], database_url)
 
-    assert "apply 0003_canonical_contracts_and_master_data" in first
+    # Fresh DBs apply 0003; CI may have already migrated before pytest.
+    assert (
+        "apply 0003_canonical_contracts_and_master_data" in first
+        or "skip 0003_canonical_contracts_and_master_data" in first
+    )
     assert "skip 0003_canonical_contracts_and_master_data" in second
     assert "already exists" in seed_second
     assert "PASS" in invariants

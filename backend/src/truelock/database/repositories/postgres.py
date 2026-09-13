@@ -87,14 +87,17 @@ class PostgresRepositories:
         rows = self.fetch_all(
             """
             SELECT l.lead_id, l.display_id, l.title, l.risk_score, l.status,
-                   l.reason_summary, min(le.entity_id) AS entity_id,
+                   l.reason_summary,
+                   (array_agg(le.entity_id::text ORDER BY le.entity_id::text)
+                     FILTER (WHERE le.entity_id IS NOT NULL))[1] AS entity_id,
                    coalesce(array_agg(DISTINCT a.detector_code)
                      FILTER (WHERE a.detector_code IS NOT NULL), ARRAY[]::text[]) AS detector_codes
             FROM truelock.leads l
             LEFT JOIN truelock.lead_entities le ON le.lead_id = l.lead_id
             LEFT JOIN truelock.lead_anomalies la ON la.lead_id = l.lead_id
             LEFT JOIN truelock.anomalies a ON a.anomaly_id = la.anomaly_id
-            GROUP BY l.lead_id, l.display_id, l.title, l.risk_score, l.status, l.reason_summary
+            GROUP BY l.lead_id, l.display_id, l.title, l.risk_score, l.status,
+                     l.reason_summary, l.created_at
             ORDER BY l.risk_score DESC, l.created_at
             """
         )

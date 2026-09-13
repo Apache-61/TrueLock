@@ -15,6 +15,7 @@ from truelock.domain.models.investigation import (
     Evidence,
     EvidenceStrength,
     EvidenceType,
+    Finding,
     InvestigationStep,
     Lead,
     Outcome,
@@ -27,22 +28,35 @@ _TX_ID_RE = re.compile(r"TX-[A-Z0-9-]+")
 
 
 @dataclass
-class _InvestigationContext:
-    """Mutable state carried across investigation steps."""
+class InvestigationContext:
+    """Resolved investigation state used to assemble evidence and the final case.
+
+    Never carries detector risk_score into case construction.
+    """
 
     account_id: str
     seen_source_ids: set[str] = field(default_factory=set)
     seen_call_keys: set[str] = field(default_factory=set)
     transaction_ids: list[str] = field(default_factory=list)
+    downstream_amounts: list[float] = field(default_factory=list)
     counterparty_rfcs: list[str] = field(default_factory=list)
     root_transaction_id: str | None = None
     returned_transaction_id: str | None = None
+    root_amount: float | None = None
+    returned_amount: float | None = None
     supported_exposure: float | None = None
     net_exposure: float | None = None
     providers_involved: list[str] = field(default_factory=list)
+    payment_id: str | None = None
+    invoice_uuid: str | None = None
     hypothesis: str = ""
     escalate_reason: str | None = None
     empty_trace: bool = False
+    finding: Finding | None = None
+
+
+# Backward-compatible alias for internal callers/tests.
+_InvestigationContext = InvestigationContext
 
 
 class ForensicInvestigator:
@@ -62,7 +76,7 @@ class ForensicInvestigator:
         """Run an evidence-backed investigation for a given lead."""
         steps: list[InvestigationStep] = []
         collector = EvidenceCollector()
-        ctx = _InvestigationContext(
+        ctx = InvestigationContext(
             account_id=self._resolve_account_id(lead),
             hypothesis=lead.reason,
             root_transaction_id=self._infer_root_tx_from_lead(lead),
@@ -85,13 +99,10 @@ class ForensicInvestigator:
 
             planned = self._next_deterministic_action(lead, ctx, step_count)
             if planned is None:
-                # Budget remaining but no more productive actions — conclude or escalate.
                 break
 
             tool_name, tool_args, reason = planned
 
-            # Prefer Gemini when configured; fall back to the deterministic plan on
-            # invalid args, missing function call, or offline mode.
             if self.gemini.is_configured:
                 prompt = self._build_prompt(lead, ctx, steps, collector.evidence)
                 resp = self.gemini.generate(
@@ -105,23 +116,22 @@ class ForensicInvestigator:
                     normalized, err = validate_tool_args(candidate_name, candidate_args)
                     if err is None and normalized is not None:
                         tool_name, tool_args = candidate_name, normalized
-                    # else keep deterministic plan
 
             call_key = self._call_key(tool_name, tool_args)
             if call_key in ctx.seen_call_keys:
-                # Repeated call without progress — escalate rather than loop.
                 ctx.escalate_reason = (
                     f"Repeated tool call '{tool_name}' without new evidence or "
                     "narrowed hypothesis."
                 )
-                step = self._make_escalate_step(
-                    step_id=step_id,
-                    lead=lead,
-                    tool_name=tool_name,
-                    tool_args=tool_args,
-                    reason=ctx.escalate_reason,
+                steps.append(
+                    self._make_escalate_step(
+                        step_id=step_id,
+                        lead=lead,
+                        tool_name=tool_name,
+                        tool_args=tool_args,
+                        reason=ctx.escalate_reason,
+                    )
                 )
-                steps.append(step)
                 concluded = True
                 break
 
@@ -146,8 +156,17 @@ class ForensicInvestigator:
                     tool_args=tool_args,
                     raw_result=raw_result,
                     new_sources=new_sources,
-                    focus_source_ids=set(ctx.transaction_ids) if tool_name == "trace_outgoing_funds" else None,
+                    ctx=ctx,
                 )
+                if tool_name == "trace_outgoing_funds" and not ctx.empty_trace:
+                    new_evidence.extend(
+                        self._materialize_linked_payment_invoice(
+                            collector=collector,
+                            lead=lead,
+                            step_id=step_id,
+                            ctx=ctx,
+                        )
+                    )
                 for sid in source_ids:
                     ctx.seen_source_ids.add(sid)
 
@@ -167,19 +186,19 @@ class ForensicInvestigator:
                     concluded = True
 
             result_refs = source_ids + [f"HASH:{result_hash}"]
-            step = InvestigationStep(
-                step_id=step_id,
-                lead_id=lead.lead_id,
-                action=tool_name.upper(),
-                tool=tool_name,
-                reason=reason,
-                inputs=tool_args,
-                result_refs=result_refs,
-                decision=decision,
+            steps.append(
+                InvestigationStep(
+                    step_id=step_id,
+                    lead_id=lead.lead_id,
+                    action=tool_name.upper(),
+                    tool=tool_name,
+                    reason=reason,
+                    inputs=tool_args,
+                    result_refs=result_refs,
+                    decision=decision,
+                )
             )
-            steps.append(step)
 
-        # Budget exhausted without terminal decision.
         if not concluded and step_count >= self.max_steps:
             step_id = f"STEP-{lead.lead_id}-{step_count:02d}-ESCALATE"
             ctx.escalate_reason = (
@@ -196,8 +215,134 @@ class ForensicInvestigator:
                 )
             )
 
-        case = self._build_case(lead, ctx, collector, steps)
+        case = self.build_case(lead, ctx, collector, steps)
         return case, steps, list(collector.evidence)
+
+    # ------------------------------------------------------------------
+    # Case construction (Phase 1 — evidence-derived, never risk_score)
+    # ------------------------------------------------------------------
+
+    def build_case(
+        self,
+        lead: Lead,
+        ctx: InvestigationContext,
+        collector: EvidenceCollector,
+        steps: list[InvestigationStep],
+    ) -> Case:
+        """Assemble Case strictly from resolved trail context and evaluated finding.
+
+        Does not read ``lead.risk_score``. Status, providers, and amount come from
+        evidence, exposure, and the terminal investigation decision.
+        """
+        finding = collector.evaluate_finding(
+            finding_id=f"FINDING-{lead.lead_id}",
+            lead_id=lead.lead_id,
+            statement=ctx.hypothesis or lead.reason,
+        )
+        ctx.finding = finding
+
+        terminal = steps[-1].decision if steps else StepDecision.ESCALATE
+        status, confidence, amount = self._map_finding_to_case_fields(
+            finding=finding,
+            ctx=ctx,
+            terminal=terminal,
+        )
+
+        limitations = [
+            "Analysis bounded by available bank statements and CFDI repository.",
+        ]
+        if ctx.escalate_reason:
+            limitations.append(ctx.escalate_reason)
+        if finding.rationale:
+            limitations.append(f"Finding: {finding.rationale}")
+
+        providers = self._providers_from_context(ctx)
+        evidence_ids = [e.evidence_id for e in collector.evidence]
+        evidence_hash = self._canonical_evidence_hash(collector.evidence)
+
+        return Case(
+            case_id=f"CASE-{lead.lead_id}",
+            status=status,
+            hypothesis=ctx.hypothesis or f"Investigation into {lead.reason}",
+            providers_involved=providers,
+            amount_involved=amount,
+            supporting_evidence=evidence_ids,
+            confidence_level=confidence,
+            limitations=limitations,
+            citations=["CFF Art. 69-B", "SAT CFDI 4.0 Standard"],
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            evidence_hash=evidence_hash,
+        )
+
+    def _map_finding_to_case_fields(
+        self,
+        finding: Finding,
+        ctx: InvestigationContext,
+        terminal: StepDecision,
+    ) -> tuple[str, str, float]:
+        """Map Finding + terminal step to Case status/confidence/amount."""
+        exposure_ready = (
+            ctx.supported_exposure is not None and ctx.root_transaction_id is not None
+        )
+
+        if terminal == StepDecision.ESCALATE:
+            return (
+                "INSUFFICIENT_EVIDENCE",
+                "LOW",
+                float(ctx.supported_exposure or 0.0),
+            )
+
+        if terminal == StepDecision.DISCARD or ctx.empty_trace:
+            return "UNSUBSTANTIATED", "MEDIUM", 0.0
+
+        if finding.outcome == Outcome.REJECTED:
+            return "UNSUBSTANTIATED", "MEDIUM", 0.0
+
+        if (
+            finding.outcome == Outcome.SUPPORTED
+            and exposure_ready
+            and terminal == StepDecision.CONCLUDE
+        ):
+            return "SUBSTANTIATED", "HIGH", float(ctx.supported_exposure or 0.0)
+
+        if finding.outcome == Outcome.SUPPORTED and not exposure_ready:
+            # Direct records without a calculated root exposure remain insufficient.
+            return (
+                "INSUFFICIENT_EVIDENCE",
+                "LOW",
+                float(ctx.supported_exposure or 0.0),
+            )
+
+        if finding.outcome == Outcome.INSUFFICIENT_EVIDENCE:
+            return (
+                "INSUFFICIENT_EVIDENCE",
+                "LOW",
+                float(ctx.supported_exposure or 0.0),
+            )
+
+        return "UNSUBSTANTIATED", "MEDIUM", float(ctx.supported_exposure or 0.0)
+
+    @staticmethod
+    def _providers_from_context(ctx: InvestigationContext) -> list[str]:
+        """RFCs only — never account numbers or bare entity IDs from the lead."""
+        return list(ctx.providers_involved)
+
+    @staticmethod
+    def _canonical_evidence_hash(evidence: list[Evidence]) -> str:
+        payload = [
+            {
+                "evidence_id": e.evidence_id,
+                "type": e.type.value if hasattr(e.type, "value") else e.type,
+                "source_type": e.source_type,
+                "source_id": e.source_id,
+                "claim": e.claim,
+                "strength": e.strength.value if hasattr(e.strength, "value") else e.strength,
+                "record_hash": e.record_hash,
+            }
+            for e in evidence
+        ]
+        serialized = json.dumps(payload, sort_keys=True, default=str)
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
     # ------------------------------------------------------------------
     # Planning
@@ -206,14 +351,12 @@ class ForensicInvestigator:
     def _next_deterministic_action(
         self,
         lead: Lead,
-        ctx: _InvestigationContext,
+        ctx: InvestigationContext,
         step_count: int,
     ) -> tuple[str, dict[str, Any], str] | None:
-        """Return the next (tool, args, reason) or None when the plan is exhausted."""
         if ctx.empty_trace:
             return None
 
-        # Step 1: always trace outgoing funds from the lead account.
         if "trace_outgoing_funds" not in {k.split("|")[0] for k in ctx.seen_call_keys}:
             return (
                 "trace_outgoing_funds",
@@ -221,7 +364,6 @@ class ForensicInvestigator:
                 f"Trace outgoing funds from account {ctx.account_id} for {lead.detector_id}",
             )
 
-        # Step 2: inspect counterparties discovered in the trace.
         if ctx.counterparty_rfcs:
             inspect_key = self._call_key(
                 "inspect_counterparties", {"rfcs": sorted(ctx.counterparty_rfcs)}
@@ -233,11 +375,9 @@ class ForensicInvestigator:
                     "Identify legal counterparties on the money trail",
                 )
 
-            # Optional regulatory check for first unknown / EFOS-relevant RFC.
             for rfc in ctx.counterparty_rfcs:
                 reg_key = self._call_key("check_regulatory_status", {"rfc": rfc})
                 if reg_key not in ctx.seen_call_keys and step_count <= self.max_steps - 1:
-                    # Only one regulatory check unless we still need exposure.
                     if not any(k.startswith("check_regulatory_status|") for k in ctx.seen_call_keys):
                         return (
                             "check_regulatory_status",
@@ -245,7 +385,6 @@ class ForensicInvestigator:
                             f"Check contextual SAT 69-B status for {rfc}",
                         )
 
-        # Final productive step: calculate exposure from root (and return if known).
         if ctx.root_transaction_id:
             exp_args: dict[str, Any] = {"root_transaction_id": ctx.root_transaction_id}
             if ctx.returned_transaction_id:
@@ -263,7 +402,7 @@ class ForensicInvestigator:
     def _decide_step(
         self,
         lead: Lead,
-        ctx: _InvestigationContext,
+        ctx: InvestigationContext,
         step_count: int,
         tool_name: str,
         new_evidence_count: int,
@@ -275,10 +414,7 @@ class ForensicInvestigator:
         if tool_name == "calculate_exposure" and ctx.supported_exposure is not None:
             return StepDecision.CONCLUDE
 
-        # FOLLOW only when we gained sources or narrowed the hypothesis.
         if new_evidence_count > 0 or new_sources or self._hypothesis_narrowed(ctx, lead):
-            # If plan is exhausted after this productive step, conclude on next loop;
-            # keep FOLLOWING while more planned tools remain.
             remaining = self._next_deterministic_action(lead, ctx, step_count + 1)
             if remaining is None and ctx.supported_exposure is not None:
                 return StepDecision.CONCLUDE
@@ -299,7 +435,7 @@ class ForensicInvestigator:
 
     def _update_context_from_tool(
         self,
-        ctx: _InvestigationContext,
+        ctx: InvestigationContext,
         tool_name: str,
         raw_result: dict[str, Any],
     ) -> None:
@@ -315,18 +451,28 @@ class ForensicInvestigator:
 
             tx_ids = [t["id"] for t in focus_txs if t.get("id")]
             ctx.transaction_ids = tx_ids
-            # Economic root = payment-linked transaction when present (never a hop).
+
             payment_linked = [
-                t["id"] for t in focus_txs if t.get("related_payment_id") and t.get("id")
+                t for t in focus_txs if t.get("related_payment_id") and t.get("id")
             ]
             if not payment_linked:
                 payment_linked = [
-                    t["id"] for t in txs if t.get("related_payment_id") and t.get("id")
+                    t for t in txs if t.get("related_payment_id") and t.get("id")
                 ]
             if payment_linked:
-                ctx.root_transaction_id = payment_linked[0]
+                root_tx = payment_linked[0]
+                ctx.root_transaction_id = root_tx["id"]
+                ctx.root_amount = float(root_tx.get("amount") or 0.0)
+                ctx.payment_id = root_tx.get("related_payment_id")
             elif not ctx.root_transaction_id and tx_ids:
                 ctx.root_transaction_id = tx_ids[0]
+                ctx.root_amount = float(focus_txs[0].get("amount") or 0.0)
+            elif ctx.root_transaction_id and ctx.root_amount is None:
+                root_tx = next(
+                    (t for t in txs if t.get("id") == ctx.root_transaction_id), None
+                )
+                if root_tx:
+                    ctx.root_amount = float(root_tx.get("amount") or 0.0)
 
             origin_account = root_account
             if ctx.root_transaction_id:
@@ -337,13 +483,24 @@ class ForensicInvestigator:
                 if root_tx and root_tx.get("from_account"):
                     origin_account = root_tx["from_account"]
 
+            downstream: list[float] = []
             for tx in focus_txs:
+                if tx.get("id") == ctx.root_transaction_id:
+                    continue
                 if (
                     tx.get("to_account") == origin_account
                     and tx.get("id") != ctx.root_transaction_id
                 ):
                     ctx.returned_transaction_id = tx["id"]
-                    break
+                    ctx.returned_amount = float(tx.get("amount") or 0.0)
+                else:
+                    downstream.append(float(tx.get("amount") or 0.0))
+            ctx.downstream_amounts = downstream
+
+            if ctx.payment_id:
+                payment = self.tools.payments.get(ctx.payment_id)
+                if payment:
+                    ctx.invoice_uuid = payment.related_invoice_uuid
 
             accounts_seen: set[str] = set()
             for tx in focus_txs:
@@ -378,13 +535,30 @@ class ForensicInvestigator:
             )
 
         elif tool_name == "calculate_exposure":
-            ctx.supported_exposure = float(result.get("supported_exposure") or 0.0)
-            ctx.net_exposure = float(result.get("net_exposure") or 0.0)
+            root_amount = float(
+                result.get("root_amount")
+                if result.get("root_amount") is not None
+                else (ctx.root_amount or 0.0)
+            )
+            returned_amount = float(
+                result.get("returned_amount")
+                if result.get("returned_amount") is not None
+                else (ctx.returned_amount or 0.0)
+            )
+            exposure = ExposureCalculator.calculate_root_flow_exposure(
+                root_flow_id=result.get("root_transaction_id")
+                or ctx.root_transaction_id
+                or "UNKNOWN",
+                root_amount=root_amount,
+                downstream_transfers=list(ctx.downstream_amounts),
+                returned_amount=returned_amount,
+            )
+            ctx.root_amount = exposure.root_amount
+            ctx.returned_amount = exposure.verified_returned_amount
+            ctx.supported_exposure = exposure.supported_exposure
+            ctx.net_exposure = exposure.net_exposure
             if result.get("root_transaction_id"):
                 ctx.root_transaction_id = result["root_transaction_id"]
-            if result.get("returned_transaction_id") or result.get("returned_amount"):
-                # keep returned id if already known
-                pass
             ctx.hypothesis = (
                 f"Root-flow exposure {ctx.supported_exposure:,.2f} MXN "
                 f"(net {ctx.net_exposure:,.2f} MXN) without hop double-counting"
@@ -399,21 +573,21 @@ class ForensicInvestigator:
         tool_args: dict[str, Any],
         raw_result: dict[str, Any],
         new_sources: list[str],
-        focus_source_ids: set[str] | None = None,
+        ctx: InvestigationContext,
     ) -> list[Evidence]:
         created: list[Evidence] = []
         result = raw_result.get("result") or {}
         provenance = raw_result.get("provenance") or tool_name
+        focus_ids = set(ctx.transaction_ids) if tool_name == "trace_outgoing_funds" else None
 
         if tool_name == "trace_outgoing_funds":
             for tx in result.get("transactions") or []:
                 tx_id = tx.get("id")
                 if not tx_id or any(e.source_id == tx_id for e in collector.evidence):
                     continue
-                if focus_source_ids is not None and tx_id not in focus_source_ids:
+                if focus_ids is not None and tx_id not in focus_ids:
                     continue
-                # Transaction legs on the money trail are DIRECT economic linkage.
-                strength = EvidenceStrength.DIRECT
+                strength = self._transaction_evidence_strength(tx_id, ctx)
                 claim = (
                     f"Transaction {tx_id}: {tx.get('amount'):,.2f} MXN from "
                     f"{tx.get('from_account')} to {tx.get('to_account')} "
@@ -437,8 +611,7 @@ class ForensicInvestigator:
                 rfc = item.get("rfc") or "UNKNOWN"
                 provider = item.get("provider")
                 entity = item.get("entity")
-                source_id = rfc
-                if any(e.source_id == source_id for e in collector.evidence):
+                if any(e.source_id == rfc for e in collector.evidence):
                     continue
                 name = None
                 if provider:
@@ -455,7 +628,7 @@ class ForensicInvestigator:
                         evidence_id=f"EVD-{lead.lead_id}-CPTY-{rfc}",
                         ev_type=EvidenceType.RELATIONSHIP,
                         source_type="ENTITY_REGISTRY",
-                        source_id=source_id,
+                        source_id=rfc,
                         claim=claim,
                         strength=EvidenceStrength.CORROBORATING,
                         raw_payload=item,
@@ -486,21 +659,25 @@ class ForensicInvestigator:
             )
 
         elif tool_name == "calculate_exposure":
-            root_id = result.get("root_transaction_id") or "UNKNOWN"
+            root_id = ctx.root_transaction_id or result.get("root_transaction_id") or "UNKNOWN"
             if any(e.source_id == f"EXPOSURE:{root_id}" for e in collector.evidence):
                 return created
-            # Align with ExposureCalculator invariants.
-            ExposureCalculator.calculate_root_flow_exposure(
+            exposure = ExposureCalculator.calculate_root_flow_exposure(
                 root_flow_id=root_id,
-                root_amount=float(result.get("root_amount") or 0.0),
-                downstream_transfers=[],
-                returned_amount=float(result.get("returned_amount") or 0.0),
+                root_amount=float(ctx.root_amount or result.get("root_amount") or 0.0),
+                downstream_transfers=list(ctx.downstream_amounts),
+                returned_amount=float(
+                    ctx.returned_amount
+                    if ctx.returned_amount is not None
+                    else (result.get("returned_amount") or 0.0)
+                ),
             )
             claim = (
                 f"Root-flow exposure for {root_id}: supported "
-                f"{result.get('supported_exposure'):,.2f} MXN, net "
-                f"{result.get('net_exposure'):,.2f} MXN "
-                f"(policy {result.get('policy')}; provenance: {provenance})."
+                f"{exposure.supported_exposure:,.2f} MXN, net "
+                f"{exposure.net_exposure:,.2f} MXN "
+                f"(returned {exposure.verified_returned_amount:,.2f} MXN; "
+                f"policy {exposure.policy_applied}; provenance: {provenance})."
             )
             created.append(
                 collector.add_record(
@@ -510,7 +687,15 @@ class ForensicInvestigator:
                     source_id=f"EXPOSURE:{root_id}",
                     claim=claim,
                     strength=EvidenceStrength.DIRECT,
-                    raw_payload=result,
+                    raw_payload={
+                        "root_transaction_id": root_id,
+                        "root_amount": exposure.root_amount,
+                        "downstream_flow": exposure.downstream_flow,
+                        "returned_amount": exposure.verified_returned_amount,
+                        "supported_exposure": exposure.supported_exposure,
+                        "net_exposure": exposure.net_exposure,
+                        "policy": exposure.policy_applied,
+                    },
                     gathered_by_step_id=step_id,
                 )
             )
@@ -540,77 +725,78 @@ class ForensicInvestigator:
 
         return created
 
-    def _build_case(
+    def _materialize_linked_payment_invoice(
         self,
-        lead: Lead,
-        ctx: _InvestigationContext,
         collector: EvidenceCollector,
-        steps: list[InvestigationStep],
-    ) -> Case:
-        finding = collector.evaluate_finding(
-            finding_id=f"FINDING-{lead.lead_id}",
-            lead_id=lead.lead_id,
-            statement=ctx.hypothesis or lead.reason,
-        )
+        lead: Lead,
+        step_id: str,
+        ctx: InvestigationContext,
+    ) -> list[Evidence]:
+        """Attach CFDI/payment records linked from the economic root transaction."""
+        created: list[Evidence] = []
+        if ctx.payment_id:
+            payment = self.tools.payments.get(ctx.payment_id)
+            if payment and not any(e.source_id == payment.id for e in collector.evidence):
+                payload = payment.to_dict()
+                created.append(
+                    collector.add_record(
+                        evidence_id=f"EVD-{lead.lead_id}-PMT-{payment.id}",
+                        ev_type=EvidenceType.DOCUMENT,
+                        source_type="PAYMENT_RECORD",
+                        source_id=payment.id,
+                        claim=(
+                            f"Payment {payment.id} of {payment.amount:,.2f} MXN on "
+                            f"{payment.payment_date} settles invoice "
+                            f"{payment.related_invoice_uuid}."
+                        ),
+                        strength=EvidenceStrength.CORROBORATING,
+                        raw_payload=payload,
+                        gathered_by_step_id=step_id,
+                    )
+                )
+                ctx.seen_source_ids.add(payment.id)
+                ctx.invoice_uuid = payment.related_invoice_uuid
 
-        terminal = steps[-1].decision if steps else StepDecision.ESCALATE
-        limitations = [
-            "Analysis bounded by available bank statements and CFDI repository.",
-        ]
-        if ctx.escalate_reason:
-            limitations.append(ctx.escalate_reason)
+        invoice_uuid = ctx.invoice_uuid
+        if invoice_uuid:
+            invoice = self.tools.invoices.get(invoice_uuid)
+            if invoice and not any(e.source_id == invoice.uuid for e in collector.evidence):
+                payload = invoice.to_dict()
+                created.append(
+                    collector.add_record(
+                        evidence_id=f"EVD-{lead.lead_id}-INV-{invoice.uuid[:8]}",
+                        ev_type=EvidenceType.INVOICE,
+                        source_type="CFDI",
+                        source_id=invoice.uuid,
+                        claim=(
+                            f"Invoice {invoice.uuid} for {invoice.amount:,.2f} "
+                            f"{invoice.currency} issued by {invoice.provider_rfc} "
+                            f"to {invoice.receiver_rfc} on {invoice.issue_date}."
+                        ),
+                        strength=EvidenceStrength.CORROBORATING,
+                        raw_payload=payload,
+                        gathered_by_step_id=step_id,
+                    )
+                )
+                ctx.seen_source_ids.add(invoice.uuid)
+        return created
 
-        if terminal == StepDecision.ESCALATE:
-            status = "INSUFFICIENT_EVIDENCE"
-            confidence = "LOW"
-            amount = float(ctx.supported_exposure or 0.0)
-        elif terminal == StepDecision.DISCARD or ctx.empty_trace:
-            status = "UNSUBSTANTIATED"
-            confidence = "MEDIUM"
-            amount = 0.0
-        elif finding.outcome == Outcome.SUPPORTED and ctx.supported_exposure is not None:
-            status = "SUBSTANTIATED"
-            confidence = "HIGH"
-            amount = float(ctx.supported_exposure)
-        elif finding.outcome == Outcome.INSUFFICIENT_EVIDENCE:
-            status = "INSUFFICIENT_EVIDENCE"
-            confidence = "LOW"
-            amount = float(ctx.supported_exposure or 0.0)
-        else:
-            status = "UNSUBSTANTIATED"
-            confidence = "MEDIUM"
-            amount = float(ctx.supported_exposure or 0.0)
-
-        providers = list(ctx.providers_involved)
-        if not providers and lead.entity_id and not lead.entity_id.startswith("0"):
-            providers = [lead.entity_id]
-
-        evidence_ids = [e.evidence_id for e in collector.evidence]
-        evidence_hash = hashlib.sha256(
-            "".join(evidence_ids).encode("utf-8")
-        ).hexdigest()
-
-        now = datetime.now(timezone.utc).isoformat()
-        return Case(
-            case_id=f"CASE-{lead.lead_id}",
-            status=status,
-            hypothesis=ctx.hypothesis or f"Investigation into {lead.reason}",
-            providers_involved=providers,
-            amount_involved=amount,
-            supporting_evidence=evidence_ids,
-            confidence_level=confidence,
-            limitations=limitations,
-            citations=["CFF Art. 69-B", "SAT CFDI 4.0 Standard"],
-            generated_at=now,
-            evidence_hash=evidence_hash,
-        )
+    @staticmethod
+    def _transaction_evidence_strength(
+        tx_id: str, ctx: InvestigationContext
+    ) -> EvidenceStrength:
+        """Root, continuing hops, and return legs are DIRECT economic linkage."""
+        if tx_id == ctx.root_transaction_id or tx_id == ctx.returned_transaction_id:
+            return EvidenceStrength.DIRECT
+        if tx_id in ctx.transaction_ids:
+            return EvidenceStrength.DIRECT
+        return EvidenceStrength.CORROBORATING
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
     def _resolve_account_id(self, lead: Lead) -> str:
-        """Lead.entity_id may be an account number or an entity id."""
         entity_id = lead.entity_id
         if self.tools.accounts.get(entity_id):
             return entity_id
@@ -633,7 +819,6 @@ class ForensicInvestigator:
     def _select_cycle_path(
         txs: list[dict[str, Any]], start_account: str
     ) -> list[dict[str, Any]]:
-        """Return the first simple cycle path of transactions back to start_account."""
         adjacency: dict[str, list[dict[str, Any]]] = {}
         for tx in txs:
             frm = tx.get("from_account")
@@ -660,7 +845,7 @@ class ForensicInvestigator:
     def _build_prompt(
         self,
         lead: Lead,
-        ctx: _InvestigationContext,
+        ctx: InvestigationContext,
         steps: list[InvestigationStep],
         evidence: list[Evidence],
     ) -> str:
@@ -676,7 +861,7 @@ class ForensicInvestigator:
             "Always include required arguments (e.g. account_id for trace_outgoing_funds)."
         )
 
-    def _hypothesis_narrowed(self, ctx: _InvestigationContext, lead: Lead) -> bool:
+    def _hypothesis_narrowed(self, ctx: InvestigationContext, lead: Lead) -> bool:
         return bool(ctx.hypothesis) and ctx.hypothesis != lead.reason
 
     @staticmethod
