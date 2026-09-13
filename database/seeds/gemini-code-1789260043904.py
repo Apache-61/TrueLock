@@ -117,6 +117,8 @@ class TrueLockSeeder:
         """)
 
 if __name__ == "__main__":
+    seeder = TrueLockSeeder("dbname=truelock user=postgres password=secret")
+    seeder.run_seed()
     # Example execution
     # seeder = TrueLockSeeder("dbname=truelock user=postgres password=secret")
     # seeder.run_seed()
