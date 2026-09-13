@@ -28,8 +28,17 @@ POST /api/imports/efos                  -> multipart file -> ImportReport  (Post
 
 GET  /api/demo/scenarios                -> { scenario_id, description }[]
 POST /demo/inject-fraud                 -> { scenario_id? } -> InjectResult
-POST /api/scenarios/reset               -> { status, message }  (in-memory demo only)
+POST /api/demo/clear-analysis           -> empty workspace (no leads)
+POST /api/demo/load-demo                -> seed CASE-DEMO-001 + detector leads
+POST /api/scenarios/reset               -> same as clear-analysis
 ```
+
+`POST /api/demo/clear-analysis` wipes threads/investigations/evidence/imports and
+leaves an empty `CASE-DEMO-001` shell with **no leads**.
+
+`POST /api/demo/load-demo` reseeds the canonical demo and runs detectors so leads appear.
+
+Uploads via `/api/imports/*` also re-run detectors after accept.
 
 ### InvestigationBundle
 

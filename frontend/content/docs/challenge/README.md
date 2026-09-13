@@ -1,6 +1,6 @@
 # Challenge — Judge / reviewer index
 
-**Preferred surface (hosted):** [https://truelock.tech/docs](https://truelock.tech/docs)
+**Preferred surface (hosted):** [https://truelockfa.tech/docs](https://truelockfa.tech/docs)
 (replace with your live `.tech` hostname once DNS is pointed). Judges need only a browser.
 
 **Start here** if you are reviewing or judging TrueLock. This page is the
@@ -30,8 +30,8 @@ Upload pack (copies + zip): `dist/docs-pack/` — see `dist/docs-pack/INDEX.md`.
 
 | Service | URL |
 |---------|-----|
-| App + docs | `https://truelock.tech` (and `/docs`) |
-| API | `https://api.truelock.tech` |
+| App + docs | `https://truelockfa.tech` (and `/docs`) |
+| API | `https://api.truelockfa.tech` |
 
 ### Local developer only
 

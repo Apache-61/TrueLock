@@ -29,7 +29,7 @@ Copy `.env.example` → `.env`. Critical keys:
 | `HARD_BUDGET_STOP_USD` | Session hard stop (default 280) |
 | `NEXT_PUBLIC_API_URL` | Browser → API base |
 | `NEXT_PUBLIC_SITE_URL` | Canonical public origin (e.g. `https://truelockfa.tech`) |
-| `FRONTEND_ORIGIN` | CORS allowlist |
+| `FRONTEND_ORIGIN` | CORS allowlist (apex + automatic `www.` twin) |
 
 Host `DATABASE_URL` (port **5433**):
 

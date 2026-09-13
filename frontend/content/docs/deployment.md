@@ -28,8 +28,8 @@ Copy `.env.example` → `.env`. Critical keys:
 | `GEMINI_API_KEY` / `GEMINI_KEY_A`…`D` | Authorized Gemini projects |
 | `HARD_BUDGET_STOP_USD` | Session hard stop (default 280) |
 | `NEXT_PUBLIC_API_URL` | Browser → API base |
-| `NEXT_PUBLIC_SITE_URL` | Canonical public origin (e.g. `https://truelock.tech`) |
-| `FRONTEND_ORIGIN` | CORS allowlist |
+| `NEXT_PUBLIC_SITE_URL` | Canonical public origin (e.g. `https://truelockfa.tech`) |
+| `FRONTEND_ORIGIN` | CORS allowlist (apex + automatic `www.` twin) |
 
 Host `DATABASE_URL` (port **5433**):
 
@@ -56,8 +56,8 @@ authorization — CI stays green but does not auto-deploy.
 
 ## Hosted `.tech` domain (judges need only a browser)
 
-Placeholder hostname used in configs: **`truelock.tech`**
-(replace everywhere if your registrar name differs).
+Production hostname used in configs: **`truelockfa.tech`**
+(Tech Domains — DNS is case-insensitive).
 
 | Piece | Target |
 |---|---|
@@ -69,10 +69,10 @@ Placeholder hostname used in configs: **`truelock.tech`**
 
 1. Own/buy the `.tech` domain at your registrar.
 2. Create Render Postgres + web service from [`render.yaml`](../render.yaml); set
-   `GEMINI_*`, `FRONTEND_ORIGIN=https://truelock.tech`, run migrate/seed on release.
+   `GEMINI_*`, `FRONTEND_ORIGIN=https://truelockfa.tech`, run migrate/seed on release.
 3. Deploy frontend on Vercel from repo root / `frontend` using [`vercel.json`](../vercel.json);
-   set `NEXT_PUBLIC_API_URL=https://api.truelock.tech` and
-   `NEXT_PUBLIC_SITE_URL=https://truelock.tech`.
+   set `NEXT_PUBLIC_API_URL=https://api.truelockfa.tech` and
+   `NEXT_PUBLIC_SITE_URL=https://truelockfa.tech`.
 4. DNS at the registrar:
    - `A` / `ALIAS` / `CNAME` for `@` and `www` → Vercel
    - `CNAME` `api` → Render hostname

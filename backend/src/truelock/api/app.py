@@ -27,7 +27,7 @@ from truelock.seeder.ingestion.errors import IngestError
 from truelock.services.import_service import ImportService
 from truelock.services.investigation_service import InvestigationService
 from truelock.services.observability_service import ObservabilityService
-from truelock.settings import settings
+from truelock.settings import cors_allow_origins, settings
 
 
 class StartInvestigationRequest(BaseModel):
@@ -66,7 +66,7 @@ def create_app(*, use_database: bool | None = None) -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_origin, "http://localhost:3000", "http://127.0.0.1:3000"],
+        allow_origins=cors_allow_origins(settings.frontend_origin),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

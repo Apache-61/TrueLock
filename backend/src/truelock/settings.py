@@ -4,10 +4,32 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def cors_allow_origins(frontend_origin: str) -> list[str]:
+    """CORS allowlist: configured origin, apex/www twin, and local Next.js."""
+    origins = {
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    }
+    configured = (frontend_origin or "").strip().rstrip("/")
+    if configured:
+        origins.add(configured)
+        parsed = urlparse(configured)
+        if parsed.scheme and parsed.netloc:
+            host = parsed.netloc
+            twin = (
+                host[4:]
+                if host.startswith("www.")
+                else f"www.{host}"
+            )
+            origins.add(f"{parsed.scheme}://{twin}")
+    return sorted(origins)
 
 
 @dataclass(frozen=True)

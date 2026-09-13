@@ -17,9 +17,9 @@ Blueprint: [`render.yaml`](../../render.yaml) at repo root.
 1. Connect the GitHub repo in Render → apply blueprint.
 2. Set secret env on the API service (Dashboard → Environment):
    - `GEMINI_API_KEY` or `GEMINI_KEY_A`…`D`
-   - `FRONTEND_ORIGIN=https://truelockfa.tech`
+   - `FRONTEND_ORIGIN=https://truelockfa.tech` (API also allows `https://www.truelockfa.tech`)
    - `HARD_BUDGET_STOP_USD` (optional)
-3. Release command runs migrations + seed (see `render.yaml`).
+3. Container start runs migrate + seed then uvicorn on `$PORT` (`scripts/render_start.sh`).
 4. Note the onrender.com hostname; you will CNAME `api` to it.
 
 ## 3. Frontend (Vercel)

@@ -21,9 +21,12 @@ services:
           name: truelock-pg
           property: connectionString
       - key: FRONTEND_ORIGIN
+        # Apex; API also allows https://www.truelockfa.tech via cors_allow_origins.
         value: https://truelockfa.tech
       - key: TRUELOCK_PROVIDERS_CONFIG
         value: /app/config/agent-providers.json
+      - key: PYTHONPATH
+        value: /app/backend/src
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_KEY_A
